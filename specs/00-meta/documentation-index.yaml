@@ -113,7 +113,11 @@ specification_sections:
     schema_path: "schemas/06-application-surfaces"
     purpose: "Maps user-facing and device-facing application surfaces to capabilities, routes, permissions, and contracts."
     required: true
-    documents: []
+    documents:
+      - id: "06-application-surfaces.platform-control-plane"
+        path: "specs/06-application-surfaces/platform-control-plane.yaml"
+        schema_file: "schemas/06-application-surfaces/platform-control-plane.schema.json"
+        status: "draft"
 
   - id: "07-api-contracts"
     path: "specs/07-api-contracts"
@@ -201,4 +205,13 @@ open_items:
     status: "open"
   - id: "IDX-003"
     topic: "Define concrete backend solution and project folder structure."
+    status: "open"
+  - id: "IDX-004"
+    topic: "Define platform dashboard exact metrics."
+    status: "open"
+  - id: "IDX-005"
+    topic: "Define tenant provisioning retry UI behavior."
+    status: "open"
+  - id: "IDX-006"
+    topic: "Define platform settings catalog."
     status: "open"
