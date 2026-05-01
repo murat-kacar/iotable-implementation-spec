@@ -1,0 +1,151 @@
+document:
+  id: "00-meta.research-policy"
+  title: "IoTable Research Policy"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/00-meta/research-policy.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define how research is performed before technical, convention, and implementation decisions enter the IoTable Implementation Specification."
+  applies_to:
+    - "technology_selection"
+    - "architecture_decisions"
+    - "framework_usage"
+    - "security_controls"
+    - "deployment_patterns"
+    - "ui_ux_patterns"
+    - "coding_conventions"
+
+research_triggers:
+  - id: "RT-001"
+    trigger: "A version-sensitive technology claim is made."
+    action: "research_authoritative_current_sources"
+  - id: "RT-002"
+    trigger: "Multiple valid technical options exist."
+    action: "compare_options_using_fit_criteria"
+  - id: "RT-003"
+    trigger: "A convention is proposed as proven practice."
+    action: "verify_against_authoritative_or_mature_sources"
+  - id: "RT-004"
+    trigger: "A security-sensitive behavior is specified."
+    action: "check_official_and_owasp_aligned_sources"
+  - id: "RT-005"
+    trigger: "A stack-specific implementation pattern is required."
+    action: "check_framework_and_vendor_guidance"
+
+technology_selection_policy:
+  rule: "Select modern-proven technology."
+  prefer:
+    - "current_stable_major_versions"
+    - "active_maintenance"
+    - "production_adoption"
+    - "strong_ecosystem_support"
+    - "official_documentation_quality"
+    - "security_maturity"
+    - "long_term_viability"
+    - "operational_fit_for_ubuntu_vps"
+    - "llm_implementation_clarity"
+  avoid:
+    - "bleeding_edge_for_core_system"
+    - "obsolete_stable_choices"
+    - "hype_driven_selection"
+    - "unmaintained_libraries"
+    - "unclear_licensing"
+    - "weak_documentation"
+
+fit_criteria_order:
+  - "correctness"
+  - "security"
+  - "maintainability"
+  - "operational_simplicity"
+  - "llm_implementability"
+  - "performance"
+  - "developer_convenience"
+  - "cost_efficiency"
+
+source_order:
+  - "official_documentation"
+  - "formal_standards"
+  - "framework_author_recommendations"
+  - "mature_open_source_projects"
+  - "major_engineering_organizations"
+  - "reputable_engineering_blogs"
+
+research_output_statuses:
+  - id: "accepted"
+    meaning: "The recommendation is accepted into the specification."
+  - id: "rejected"
+    meaning: "The recommendation is not used."
+  - id: "needs_owner_decision"
+    meaning: "The research affects product behavior or business policy and requires project owner decision."
+  - id: "research_only"
+    meaning: "The research is recorded for context and does not define specification behavior."
+
+research_record_format:
+  required_fields:
+    - "decision_id"
+    - "topic"
+    - "status"
+    - "problem"
+    - "options"
+    - "selected_option"
+    - "source_records"
+    - "fit_assessment"
+    - "risks"
+    - "spec_impact"
+  option_required_fields:
+    - "id"
+    - "description"
+    - "advantages"
+    - "disadvantages"
+    - "fit_score"
+    - "source_support"
+
+prohibited_research_behaviors:
+  - "using_llm_memory_as_authority"
+  - "selecting_newest_without_maturity_check"
+  - "selecting_oldest_without_fit_check"
+  - "omitting_security_tradeoffs"
+  - "omitting_operational_tradeoffs"
+  - "presenting_recommendation_as_owner_decision"
+  - "using_single_low_authority_source_for_binding_decision"
+
+recommendation_policy:
+  rule: "The assistant MAY recommend the best technical option after research, but MUST distinguish recommendation from binding product decision."
+  owner_required_when:
+    - "product_behavior_changes"
+    - "business_workflow_changes"
+    - "role_or_permission_scope_changes"
+    - "payment_or_fiscal_scope_changes"
+    - "tenant_lifecycle_changes"
+
+reference_model_policy:
+  ui_product_references:
+    - "Figma"
+    - "Canva"
+    - "Notion"
+  ui_design_system_references:
+    - "Ant Design"
+    - "Material Design"
+    - "shadcn/ui"
+    - "Radix UI"
+  engineering_ecosystem_references:
+    - "Microsoft"
+    - "Google"
+    - "Linux"
+    - "Meta"
+    - "PostgreSQL"
+    - "CNCF ecosystem"
+  rule: "Reference models are used for comparison and pattern evidence. They do not define IoTable requirements."
+
+done_when:
+  - "research_triggers_are_defined"
+  - "technology_selection_policy_is_defined"
+  - "fit_criteria_order_is_defined"
+  - "research_output_statuses_are_defined"
+  - "research_record_format_is_defined"
+  - "prohibited_research_behaviors_are_defined"
