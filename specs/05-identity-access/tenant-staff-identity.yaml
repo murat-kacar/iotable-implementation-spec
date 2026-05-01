@@ -1,0 +1,207 @@
+document:
+  id: "05-identity-access.tenant-staff-identity"
+  title: "IoTable Tenant Staff Identity and Activation"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/05-identity-access/tenant-staff-identity.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant staff identity scope, invite-based activation, password policy, two-factor policy, email uniqueness, staff disable behavior, and forbidden identity behavior."
+  applies_to:
+    - "tenant_setup_console"
+    - "tenant_staff_invites"
+    - "tenant_staff_login"
+    - "tenant_identity_activation"
+    - "tenant_internal_api"
+
+identity_scope:
+  storage_scope: "tenant_database"
+  isolation_model: "database_per_tenant"
+  same_email_across_tenants_allowed: true
+  duplicate_active_email_within_tenant_allowed: false
+  rules:
+    - "Tenant staff identity MUST be tenant-scoped."
+    - "Tenant staff identity records MUST be stored in the resolved tenant database."
+    - "The same email MAY exist in different tenant databases."
+    - "The same tenant database MUST NOT have more than one active user with the same normalized email."
+    - "Tenant staff identity MUST NOT be stored in the platform database."
+    - "Platform users and tenant staff users MUST remain separate identity scopes."
+
+activation_model:
+  model: "invite_based_activation"
+  invite_required_for_staff: true
+  tenant_owner_creation_source: "platform_tenant_owner_activation"
+  staff_invite_can_assign_tenant_owner: false
+  invite_token_storage: "hash_only"
+  invite_token_ttl_hours: 72
+  activation_steps:
+    - step: 1
+      id: "authorized_user_creates_staff_invite"
+      actor: "tenant_owner_or_authorized_staff_admin"
+      result: "A tenant staff invite is created with fixed tenant role assignment."
+    - step: 2
+      id: "system_sends_invite_email"
+      actor: "system"
+      result: "An invite link containing a one-time token is sent to the invitee email."
+    - step: 3
+      id: "invitee_opens_invite_link"
+      actor: "invitee"
+      result: "The invite token is validated against hash, status, tenant database, and TTL."
+    - step: 4
+      id: "invitee_sets_password"
+      actor: "invitee"
+      result: "The invitee sets an initial password matching tenant password policy."
+    - step: 5
+      id: "tenant_staff_user_activated"
+      actor: "system"
+      result: "A tenant staff user becomes active with the role assigned by the invite."
+    - step: 6
+      id: "invite_marked_accepted"
+      actor: "system"
+      result: "The invite is marked accepted and cannot be reused."
+  rules:
+    - "Tenant staff activation MUST require a valid invite token."
+    - "Invite tokens MUST be stored as hashes only."
+    - "Invite tokens MUST be one-time-use."
+    - "Invite tokens MUST expire after 72 hours."
+    - "Expired invites MUST NOT activate users."
+    - "Accepted invites MUST NOT be reusable."
+    - "Tenant owner role MUST NOT be assignable through staff invite flow."
+
+staff_invite_policy:
+  allowed_invitable_roles:
+    - "tenant_admin"
+    - "tenant_manager"
+    - "cashier"
+    - "floor_staff"
+    - "station_operator"
+    - "accountant"
+  forbidden_invitable_roles:
+    - "tenant_owner"
+    - "platform_owner"
+  required_permissions:
+    create_invite:
+      - "tenant.staff.invite"
+      - "tenant.staff.assign_roles"
+  resend_allowed: true
+  revoke_allowed: true
+  rules:
+    - "Only fixed tenant roles listed in allowed_invitable_roles MAY be assigned by staff invite."
+    - "Platform roles MUST NOT be assignable by tenant staff invite flow."
+    - "Tenant owner MUST NOT be assignable by tenant staff invite flow."
+    - "Invite resend MUST issue a new token and invalidate the previous pending token."
+    - "Invite revocation MUST prevent future activation from that invite token."
+
+password_policy:
+  min_length: 10
+  require_uppercase: true
+  require_lowercase: true
+  require_digit: true
+  require_symbol: false
+  password_hashing: "aspnet_core_identity_default_or_stronger"
+  rules:
+    - "Tenant staff password MUST be set by the invited user during activation."
+    - "Tenant staff password MUST NOT be sent by email."
+    - "Password hashes MUST be stored using ASP.NET Core Identity default hashing or stronger."
+    - "Password policy MUST require at least 10 characters."
+    - "Password policy MUST require uppercase, lowercase, and digit."
+    - "Password policy MUST NOT require symbol in the initial product version."
+
+two_factor_policy:
+  supported: true
+  required_initial_version: false
+  allowed_methods:
+    - "authenticator_app"
+    - "email_code"
+  rules:
+    - "Two-factor authentication MAY be supported in the initial product version."
+    - "Two-factor authentication MUST NOT be required for all tenant staff in the initial product version."
+    - "Two-factor authentication MAY be enabled per user when supported."
+
+login_policy:
+  tenant_domain_required: true
+  platform_domain_login_for_tenant_staff: false
+  disabled_user_login_allowed: false
+  rules:
+    - "Tenant staff MUST login through the tenant domain."
+    - "Tenant staff MUST NOT login through platform.iotables.net."
+    - "Tenant staff login MUST resolve the tenant database from the subdomain."
+    - "Disabled staff users MUST NOT be allowed to login."
+    - "Tenant staff authentication MUST produce tenant-scoped claims and permissions."
+
+staff_lifecycle:
+  hard_delete_allowed: false
+  disable_allowed: true
+  disabled_user_login_allowed: false
+  historical_records_preserved: true
+  role_change_allowed: true
+  rules:
+    - "Tenant staff users MUST NOT be hard-deleted in the initial product version."
+    - "Tenant staff users MAY be disabled by authorized users."
+    - "Disabled users MUST retain historical audit and operational references."
+    - "Role changes MUST be audited."
+    - "Disabling a user MUST be audited."
+
+data_contract_expectations:
+  tenant_user_tables_required:
+    - "tenant_users"
+    - "tenant_user_roles"
+    - "staff_invites"
+  staff_invites_existing_contract: "specs/08-data-contracts/tenant-setup-data.yaml"
+  rules:
+    - "tenant_users and tenant_user_roles MUST be stored in the tenant database."
+    - "staff_invites MUST store invite_token_hash only."
+    - "tenant_users MUST enforce unique active normalized email within the same tenant database."
+
+security_and_audit:
+  audit_required_for:
+    - "staff_invite_created"
+    - "staff_invite_resent"
+    - "staff_invite_revoked"
+    - "staff_user_activated"
+    - "staff_user_disabled"
+    - "staff_role_changed"
+    - "failed_invite_activation_due_to_expired_or_invalid_token"
+  secret_logging_forbidden:
+    - "invite_token_plaintext"
+    - "password_plaintext"
+    - "password_hash"
+    - "two_factor_secret"
+  rules:
+    - "Invite token plaintext MUST NOT be logged."
+    - "Password plaintext MUST NOT be logged."
+    - "Two-factor secrets MUST NOT be logged."
+    - "Identity lifecycle actions MUST be auditable."
+
+forbidden_behavior:
+  - "tenant_staff_identity_in_platform_database"
+  - "shared_tenant_identity_table_with_tenant_id_filter"
+  - "duplicate_active_email_within_same_tenant"
+  - "tenant_owner_created_from_staff_invite"
+  - "platform_role_assigned_from_tenant_staff_invite"
+  - "plaintext_invite_token_storage"
+  - "plaintext_invite_token_logging"
+  - "password_sent_by_email"
+  - "password_plaintext_logging"
+  - "tenant_staff_login_from_platform_domain"
+  - "disabled_staff_user_login"
+  - "hard_delete_staff_user_initial_version"
+  - "mandatory_two_factor_for_all_staff_initial_version"
+
+open_decisions: []
+
+done_when:
+  - "identity_scope_is_defined"
+  - "activation_model_is_defined"
+  - "staff_invite_policy_is_defined"
+  - "password_policy_is_defined"
+  - "two_factor_policy_is_defined"
+  - "login_policy_is_defined"
+  - "staff_lifecycle_is_defined"
+  - "data_contract_expectations_are_defined"
+  - "security_and_audit_rules_are_defined"
+  - "forbidden_identity_behavior_is_defined"
