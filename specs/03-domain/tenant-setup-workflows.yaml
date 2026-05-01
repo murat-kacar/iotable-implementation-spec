@@ -1,0 +1,363 @@
+document:
+  id: "03-domain.tenant-setup-workflows"
+  title: "IoTable Tenant Setup Workflows"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/03-domain/tenant-setup-workflows.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant setup domain workflows, commands, validations, domain events, automatic setup progress, activation gates, and operation activation behavior."
+  applies_to:
+    - "tenant_setup_console"
+    - "tenant_setup_api"
+    - "tenant_setup_data"
+    - "tenant_operations_activation"
+    - "table_specific_firmware_generation"
+
+workflow_policy:
+  setup_step_completion_mode: "automatic_from_data_state"
+  manual_step_completion_allowed: false
+  domain_event_delivery: "in_process"
+  distributed_message_bus_required: false
+  rules:
+    - "Setup step completion MUST be derived from tenant database state."
+    - "Users MUST NOT manually mark setup steps as completed."
+    - "Activation gates MUST be evaluated from current tenant database state."
+    - "Tenant operations activation MUST be an explicit command."
+    - "Domain events MAY be handled in-process in the initial product version."
+    - "Distributed event bus MUST NOT be required for tenant setup workflows in the initial product version."
+
+commands:
+  - id: "UpdateTenantBusinessProfile"
+    actor_permissions:
+      - "tenant.profile.update"
+    emits:
+      - "TenantBusinessProfileUpdated"
+      - "TenantSetupProgressEvaluated"
+  - id: "UpdateTenantOperatingDefaults"
+    actor_permissions:
+      - "tenant.profile.update"
+    emits:
+      - "TenantOperatingDefaultsUpdated"
+      - "TenantSetupProgressEvaluated"
+  - id: "CreateOperationalTable"
+    actor_permissions:
+      - "tenant.tables.create"
+    emits:
+      - "TenantOperationalTableCreated"
+      - "TenantSetupProgressEvaluated"
+    conditional_emits:
+      has_qr_device_true:
+        - "TableQrDeviceConfigured"
+        - "TableQrDeviceFirmwareGenerated"
+  - id: "UpdateTable"
+    actor_permissions:
+      - "tenant.tables.update"
+    emits:
+      - "TenantTableUpdated"
+      - "TenantSetupProgressEvaluated"
+  - id: "GenerateTableDeviceFirmware"
+    actor_permissions:
+      - "tenant.tables.update"
+    emits:
+      - "TableQrDeviceFirmwareGenerated"
+      - "TenantSetupProgressEvaluated"
+  - id: "CreateStation"
+    actor_permissions:
+      - "tenant.stations.create"
+    emits:
+      - "StationCreated"
+      - "TenantSetupProgressEvaluated"
+  - id: "UpdateStation"
+    actor_permissions:
+      - "tenant.stations.update"
+    emits:
+      - "StationUpdated"
+      - "TenantSetupProgressEvaluated"
+  - id: "CreateMenuCategory"
+    actor_permissions:
+      - "tenant.menu.categories.manage"
+    emits:
+      - "MenuCategoryCreated"
+      - "TenantSetupProgressEvaluated"
+  - id: "UpdateMenuCategory"
+    actor_permissions:
+      - "tenant.menu.categories.manage"
+    emits:
+      - "MenuCategoryUpdated"
+      - "TenantSetupProgressEvaluated"
+  - id: "CreateMenuItem"
+    actor_permissions:
+      - "tenant.menu.items.create"
+    emits:
+      - "MenuItemCreated"
+      - "MenuItemRoutingAssigned"
+      - "TenantSetupProgressEvaluated"
+  - id: "UpdateMenuItem"
+    actor_permissions:
+      - "tenant.menu.items.update"
+    emits:
+      - "MenuItemUpdated"
+      - "MenuItemRoutingAssigned"
+      - "TenantSetupProgressEvaluated"
+  - id: "CreateStaffInvites"
+    actor_permissions:
+      - "tenant.staff.invite"
+      - "tenant.staff.assign_roles"
+    emits:
+      - "StaffInvitesCreated"
+  - id: "EvaluateTenantActivationGates"
+    actor_permissions:
+      - "tenant.setup.view"
+    emits:
+      - "TenantActivationGatesEvaluated"
+  - id: "ActivateTenantOperations"
+    actor_permissions:
+      - "tenant.setup.complete"
+    emits:
+      - "TenantActivationGatesEvaluated"
+      - "TenantOperationsActivated"
+    rules:
+      - "TenantOperationsActivated MUST be emitted only when all required gates pass."
+
+seed_workflows:
+  tenant_provisioning_seed:
+    runs_during: "tenant_database_provisioning"
+    seed_entities:
+      - "system_test_table_000"
+      - "system_test_table_999"
+      - "default_station_MAIN"
+      - "tenant_setup_state"
+    emits:
+      - "TenantSystemTestTableSeeded"
+      - "TenantDefaultStationSeeded"
+      - "TenantSetupStateInitialized"
+    rules:
+      - "Table 000 MUST be seeded as system_test."
+      - "Table 999 MUST be seeded as system_test."
+      - "MAIN station MUST be seeded as active."
+      - "Seeded system_test tables MUST NOT count as operational activation tables."
+
+setup_progress_evaluation:
+  mode: "automatic_from_data_state"
+  evaluated_after_commands:
+    - "UpdateTenantBusinessProfile"
+    - "UpdateTenantOperatingDefaults"
+    - "CreateOperationalTable"
+    - "UpdateTable"
+    - "GenerateTableDeviceFirmware"
+    - "CreateStation"
+    - "UpdateStation"
+    - "CreateMenuCategory"
+    - "UpdateMenuCategory"
+    - "CreateMenuItem"
+    - "UpdateMenuItem"
+  completed_step_rules:
+    business_profile:
+      completed_when:
+        - "business_display_name_present"
+        - "business_type_valid"
+        - "default_currency_present"
+        - "default_timezone_present"
+    operating_defaults:
+      completed_when:
+        - "default_service_mode_valid"
+        - "default_tax_display_mode_valid"
+    tables:
+      completed_when:
+        - "at_least_one_active_operational_table_exists"
+      exclusions:
+        - "system_test_tables_000_and_999"
+    stations:
+      completed_when:
+        - "at_least_one_active_station_exists"
+    menu_categories:
+      completed_when:
+        - "at_least_one_active_menu_category_exists"
+    menu_items:
+      completed_when:
+        - "at_least_one_active_orderable_menu_item_exists"
+        - "every_active_orderable_menu_item_has_price"
+        - "every_active_orderable_menu_item_has_image"
+        - "every_active_orderable_menu_item_has_active_station_routing"
+    staff_users:
+      completed_when:
+        - "always_optional"
+    devices:
+      completed_when:
+        - "always_optional"
+  rules:
+    - "Setup progress MUST be recalculated from tenant database state."
+    - "Setup progress MUST NOT trust client-provided completed step flags."
+    - "Optional setup steps MUST NOT block operations activation."
+
+activation_gate_evaluation:
+  command: "EvaluateTenantActivationGates"
+  source_of_truth: "resolved_tenant_database"
+  required_gates:
+    - id: "business_profile_completed"
+      passes_when: "business_profile step is completed"
+    - id: "operating_defaults_completed"
+      passes_when: "operating_defaults step is completed"
+    - id: "at_least_one_active_operational_table_created"
+      passes_when: "tables contains at least one active operational table"
+      excludes:
+        - "table_000"
+        - "table_999"
+        - "system_test_tables"
+    - id: "at_least_one_active_station_created"
+      passes_when: "stations contains at least one active station"
+    - id: "at_least_one_active_menu_category_created"
+      passes_when: "menu_categories contains at least one active category"
+    - id: "at_least_one_active_orderable_menu_item_created"
+      passes_when: "menu_items contains at least one active orderable item"
+    - id: "every_orderable_menu_item_has_price"
+      passes_when: "all active orderable menu items have price"
+    - id: "every_orderable_menu_item_has_image"
+      passes_when: "all active orderable menu items have image_asset_id"
+    - id: "every_orderable_menu_item_has_station_routing"
+      passes_when: "all active orderable menu items route to an active station"
+    - id: "tenant_owner_activation_completed"
+      passes_when: "tenant owner account is activated"
+  optional_gates:
+    - "staff_users_invited"
+    - "esp32_table_firmware_downloaded"
+    - "opening_hours_configured"
+    - "service_charge_configured"
+  rules:
+    - "Activation gates MUST be evaluated inside the resolved tenant database context."
+    - "Activation gates MUST NOT query another tenant database."
+    - "Activation gates MUST NOT query platform database for tenant operational state."
+    - "System test tables MUST NOT satisfy the active operational table gate."
+    - "ESP32 firmware download MUST NOT be required for operations activation."
+
+workflows:
+  business_profile_updated:
+    command: "UpdateTenantBusinessProfile"
+    validation:
+      - "business_display_name_required"
+      - "business_type_allowed"
+      - "default_currency_required"
+      - "default_timezone_required"
+    state_changes:
+      - "tenant_profile_updated"
+      - "setup_progress_recalculated"
+  operating_defaults_updated:
+    command: "UpdateTenantOperatingDefaults"
+    validation:
+      - "default_service_mode_must_be_dine_in_initial_version"
+      - "default_tax_display_mode_allowed"
+    state_changes:
+      - "tenant_profile_operating_defaults_updated"
+      - "setup_progress_recalculated"
+  operational_table_created:
+    command: "CreateOperationalTable"
+    validation:
+      - "table_number_unique"
+      - "table_number_not_000_or_999_for_operational_table"
+      - "has_qr_device_required"
+    state_changes:
+      - "table_created"
+      - "staff_pda_ordering_enabled"
+      - "setup_progress_recalculated"
+  table_qr_device_configured:
+    trigger: "CreateOperationalTable_has_qr_device_true_or_enable_qr_device"
+    validation:
+      - "one_active_qr_display_device_per_table"
+      - "firmware_secret_context_available"
+    state_changes:
+      - "device_id_generated"
+      - "device_secret_generated_and_hash_stored"
+      - "ws_identity_generated"
+      - "table_device_config_created"
+  table_specific_firmware_generated:
+    command: "GenerateTableDeviceFirmware"
+    validation:
+      - "table_has_qr_device_true"
+      - "actor_authorized_for_firmware_generation"
+      - "wifi_credentials_present_when_generation_requires_them"
+    state_changes:
+      - "firmware_artifact_generated"
+      - "firmware_config_version_incremented"
+      - "old_device_secret_revoked_when_regenerating"
+    audit_required: true
+  menu_item_created:
+    command: "CreateMenuItem"
+    validation:
+      - "category_exists"
+      - "image_asset_id_required"
+      - "orderable_item_requires_price"
+      - "orderable_item_requires_active_station"
+      - "variants_not_supported"
+      - "modifiers_not_supported"
+    state_changes:
+      - "menu_item_created"
+      - "setup_progress_recalculated"
+  tenant_operations_activated:
+    command: "ActivateTenantOperations"
+    validation:
+      - "all_required_activation_gates_pass"
+    state_changes:
+      - "tenant_setup_state_activation_status_active"
+      - "activated_at_utc_set"
+      - "activated_by_user_id_set"
+    audit_required: true
+
+domain_events:
+  - "TenantBusinessProfileUpdated"
+  - "TenantOperatingDefaultsUpdated"
+  - "TenantOperationalTableCreated"
+  - "TenantTableUpdated"
+  - "TenantSystemTestTableSeeded"
+  - "TenantDefaultStationSeeded"
+  - "TenantSetupStateInitialized"
+  - "TableQrDeviceConfigured"
+  - "TableQrDeviceFirmwareGenerated"
+  - "StationCreated"
+  - "StationUpdated"
+  - "MenuCategoryCreated"
+  - "MenuCategoryUpdated"
+  - "MenuItemCreated"
+  - "MenuItemUpdated"
+  - "MenuItemRoutingAssigned"
+  - "StaffInvitesCreated"
+  - "TenantSetupProgressEvaluated"
+  - "TenantActivationGatesEvaluated"
+  - "TenantOperationsActivated"
+
+audit_required_for:
+  - "firmware_generation"
+  - "firmware_download"
+  - "tenant_operations_activation"
+  - "staff_invites_created"
+  - "device_secret_regeneration"
+
+forbidden_behavior:
+  - "manual_setup_step_completion"
+  - "client_provided_completed_steps_as_source_of_truth"
+  - "activation_without_gate_evaluation"
+  - "activation_with_failed_required_gate"
+  - "activation_gate_counting_system_test_tables"
+  - "activation_gate_requiring_staff_invites"
+  - "activation_gate_requiring_esp32_firmware_download"
+  - "distributed_message_bus_required_for_initial_setup"
+  - "tenant_setup_workflow_cross_tenant_query"
+  - "tenant_setup_workflow_using_platform_database_for_tenant_operational_state"
+  - "firmware_regeneration_without_old_secret_revocation"
+
+open_decisions: []
+
+done_when:
+  - "workflow_policy_is_defined"
+  - "commands_are_defined"
+  - "seed_workflows_are_defined"
+  - "setup_progress_evaluation_is_defined"
+  - "activation_gate_evaluation_is_defined"
+  - "tenant_setup_workflows_are_defined"
+  - "domain_events_are_defined"
+  - "audit_required_workflows_are_defined"
+  - "forbidden_workflow_behavior_is_defined"
