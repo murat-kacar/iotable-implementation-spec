@@ -126,6 +126,10 @@ specification_sections:
         path: "specs/06-application-surfaces/platform-settings-catalog.yaml"
         schema_file: "schemas/06-application-surfaces/platform-settings-catalog.schema.json"
         status: "draft"
+      - id: "06-application-surfaces.platform-audit-catalog"
+        path: "specs/06-application-surfaces/platform-audit-catalog.yaml"
+        schema_file: "schemas/06-application-surfaces/platform-audit-catalog.schema.json"
+        status: "draft"
 
   - id: "07-api-contracts"
     path: "specs/07-api-contracts"
