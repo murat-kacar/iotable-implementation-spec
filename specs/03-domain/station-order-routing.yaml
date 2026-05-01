@@ -1,0 +1,177 @@
+document:
+  id: "03-domain.station-order-routing"
+  title: "IoTable Station and Order Routing"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/03-domain/station-order-routing.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define how submitted customer orders are split, routed, accepted, prepared, completed, served, and cancelled across tenant stations."
+  applies_to:
+    - "customer_ordering"
+    - "station_board"
+    - "floor_cash_workspace"
+    - "tenant_setup_console"
+    - "tenant_internal_api"
+    - "customer_public_api"
+
+core_model:
+  order:
+    role: "Customer-submitted commercial request grouped under a table bill session."
+    owns:
+      - "order_items"
+    routed_to_station: false
+  order_item:
+    role: "Smallest routable preparation unit."
+    routed_to_station: true
+    station_assignment_source: "menu_item_configuration"
+  station_ticket:
+    role: "Station-specific work package created from order items belonging to the same submitted order and same station."
+    creation_rule: "One station ticket MUST be created per target station per submitted order when that order contains one or more items for the station."
+
+routing_rules:
+  routing_unit: "order_item"
+  menu_item_requires_station: true
+  station_assignment_source: "menu_item_configuration"
+  order_can_split_into_multiple_station_tickets: true
+  order_split_strategy: "group_order_items_by_station"
+  station_ticket_created_per_station_per_order: true
+  rules:
+    - "Every orderable menu item MUST be assigned to exactly one preparation station."
+    - "Order items MUST be routed according to the station assigned to their menu item."
+    - "A single order MAY create multiple station tickets."
+    - "A station ticket MUST contain only order items routed to the same station."
+    - "An order item MUST NOT be routed directly by free-text category name."
+    - "Station assignment MUST be configured by tenant owner, tenant admin, or tenant manager."
+
+status_model:
+  order_item_status_flow:
+    - "submitted"
+    - "routed_to_station"
+    - "accepted"
+    - "preparing"
+    - "ready"
+    - "served"
+  station_ticket_status_flow:
+    - "created"
+    - "accepted"
+    - "preparing"
+    - "ready"
+    - "closed"
+  status_meanings:
+    submitted: "The customer submitted the item as part of an order."
+    routed_to_station: "The system assigned the item to its target station."
+    accepted: "The station acknowledged the item as accepted work."
+    preparing: "The station is actively preparing the item."
+    ready: "The station marked the item as ready for service."
+    served: "Floor staff marked the item as delivered to the table."
+    cancelled: "The item was cancelled according to the cancellation policy."
+    failed_to_route: "The item could not be routed because station configuration is invalid or missing."
+
+station_workflow:
+  accepted_required: true
+  preparing_required: true
+  ready_required: true
+  served_required: true
+  served_marking_actor: "floor_staff"
+  rules:
+    - "Station operators MUST acknowledge accepted station work."
+    - "Accepted and preparing are separate statuses."
+    - "Accepted means the station has seen and accepted the work."
+    - "Preparing means the station is actively working on the item."
+    - "Ready means the station has completed preparation."
+    - "Served MUST be marked by floor staff after the item is delivered to the table."
+    - "Station operators MUST NOT mark an item as served."
+
+customer_visibility:
+  customer_can_see_all_order_item_statuses: true
+  customer_visible_status_labels:
+    submitted: "Order received"
+    routed_to_station: "Sent to preparation"
+    accepted: "Accepted"
+    preparing: "Preparing"
+    ready: "Ready"
+    served: "Served"
+    cancelled: "Cancelled"
+  rules:
+    - "Customers MAY see all customer-safe order item statuses."
+    - "Customer-facing labels MUST NOT expose internal implementation terms."
+    - "Ready status MAY be shown to customers, but the UI MUST communicate that service is still pending when served is not reached."
+
+staff_visibility:
+  staff_visible_statuses:
+    - "submitted"
+    - "routed_to_station"
+    - "accepted"
+    - "preparing"
+    - "ready"
+    - "served"
+    - "cancelled"
+    - "failed_to_route"
+  rules:
+    - "Station staff MUST see station tickets assigned to their station."
+    - "Floor staff MUST see item readiness and served state."
+    - "Tenant manager and tenant admin MAY see all station and order item statuses."
+
+cancellation_policy:
+  staff_can_cancel_until_order_item_status: "accepted"
+  after_accepted_staff_cancel_allowed: false
+  privileged_cancellation_after_acceptance:
+    allowed: true
+    allowed_roles:
+      - "tenant_manager"
+      - "tenant_admin"
+    requires_reason: true
+    affects_bill_total: true
+    audit_required: true
+  rules:
+    - "Staff MAY cancel an order item before the item reaches accepted status."
+    - "Staff MUST NOT cancel an order item after accepted status."
+    - "Tenant manager or tenant admin MAY cancel an accepted or later order item only with a required reason."
+    - "Privileged cancellation after acceptance MUST be audited."
+    - "Privileged cancellation after acceptance MUST update the table bill total."
+    - "Cancellation does not trigger refund behavior because IoTable does not collect payments."
+
+configuration_requirements:
+  menu_item_station_assignment_required: true
+  station_code_required: true
+  station_active_state_required: true
+  invalid_station_assignment_blocks_order_submission: true
+  rules:
+    - "A tenant MUST define preparation stations before orderable menu items can be fully configured."
+    - "A menu item without a valid active station assignment MUST NOT be orderable."
+    - "Station code MUST be stable within the tenant."
+    - "Station display name MAY change without changing station code."
+
+failure_handling:
+  failed_to_route_behavior: "block_order_submission"
+  missing_station_assignment_behavior: "menu_item_not_orderable"
+  inactive_station_behavior: "menu_item_not_orderable"
+  rules:
+    - "The system MUST prevent customer submission of an item that cannot be routed."
+    - "The system MUST expose configuration errors to tenant manager or tenant admin."
+    - "The system MUST NOT silently route an item to a fallback station."
+
+open_decisions:
+  - id: "SOR-001"
+    topic: "Whether station tickets can be partially accepted per item."
+    status: "open"
+  - id: "SOR-002"
+    topic: "Whether floor staff can mark all ready items on a table as served in bulk."
+    status: "open"
+
+done_when:
+  - "routing_unit_is_defined"
+  - "menu_item_station_assignment_rule_is_defined"
+  - "order_split_strategy_is_defined"
+  - "order_item_status_flow_is_defined"
+  - "station_ticket_status_flow_is_defined"
+  - "customer_visibility_is_defined"
+  - "staff_visibility_is_defined"
+  - "cancellation_policy_is_defined"
+  - "configuration_requirements_are_defined"
+  - "failure_handling_is_defined"
