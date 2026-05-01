@@ -98,6 +98,23 @@ provisioning_lifecycle:
       id: "set_active"
       actor: "system"
       result: "Tenant status becomes active."
+  status_behavior:
+    suspended:
+      tenant_domain_access: "available"
+      tenant_owner_login: "allowed"
+      tenant_manager_login: "allowed"
+      staff_operations: "blocked"
+      customer_ordering: "blocked"
+      table_device_connections: "rejected"
+      tenant_data: "preserved"
+      reactivation_actor: "platform_admin"
+    deactivated:
+      tenant_domain_access: "blocked"
+      tenant_user_login: "blocked"
+      customer_ordering: "blocked"
+      table_device_connections: "rejected"
+      tenant_database_state: "preserved_locked"
+      reactivation_actor: "platform_admin"
 
 stakeholders:
   - id: "platform_owner"
@@ -240,9 +257,6 @@ open_product_decisions:
     topic: "Architecture style decision"
     status: "open"
   - id: "PD-010"
-    topic: "Tenant suspension and deactivation behavior"
-    status: "open"
-  - id: "PD-011"
     topic: "Tenant database schema change orchestration"
     status: "open"
 
@@ -250,6 +264,7 @@ done_when:
   - "product_identity_is_defined"
   - "multi_tenancy_baseline_is_defined"
   - "provisioning_lifecycle_is_defined"
+  - "tenant_status_behavior_is_defined"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
