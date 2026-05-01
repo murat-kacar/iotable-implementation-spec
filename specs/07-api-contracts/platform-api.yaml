@@ -32,6 +32,7 @@ api_policy:
     - "State-changing endpoints MUST create platform audit records when the operation succeeds or fails after validation starts."
     - "Command-style state changes MUST use POST endpoints with explicit command names."
     - "Platform API MUST NOT expose tenant operational workflows."
+    - "Platform API MUST NOT directly activate tenant operations."
 
 common_headers:
   request:
@@ -99,7 +100,7 @@ endpoint_groups:
       - id: "list_tenants"
         method: "GET"
         path: "/api/platform/tenants"
-        purpose: "List tenants with lifecycle, domain, provisioning, and activation summary."
+        purpose: "List tenants with lifecycle, domain, provisioning, and tenant operations activation summary."
         query:
           - "status"
           - "search"
@@ -110,13 +111,17 @@ endpoint_groups:
       - id: "create_tenant"
         method: "POST"
         path: "/api/platform/tenants"
-        purpose: "Create a tenant record and start provisioning."
+        purpose: "Create a tenant lifecycle record and start provisioning."
         request: "CreateTenantRequest"
         response: "TenantDetailResponse"
         idempotency_required: true
         audit_events:
           - "tenant_created"
           - "tenant_creation_failed"
+        rules:
+          - "Tenant creation MUST create platform lifecycle metadata and start provisioning."
+          - "Tenant creation MUST NOT mark tenant operations active."
+          - "Tenant slug MUST be provided by platform_owner and MUST be immutable after creation."
       - id: "get_tenant"
         method: "GET"
         path: "/api/platform/tenants/{tenantId}"
@@ -126,7 +131,7 @@ endpoint_groups:
       - id: "suspend_tenant"
         method: "POST"
         path: "/api/platform/tenants/{tenantId}/suspend"
-        purpose: "Suspend a tenant."
+        purpose: "Suspend an active tenant."
         request: "ReasonCommandRequest"
         response: "TenantDetailResponse"
         idempotency_required: true
@@ -135,16 +140,19 @@ endpoint_groups:
       - id: "reactivate_tenant"
         method: "POST"
         path: "/api/platform/tenants/{tenantId}/reactivate"
-        purpose: "Reactivate a suspended or deactivated tenant when eligible."
+        purpose: "Reactivate a suspended tenant when eligible."
         request: "ReasonCommandRequest"
         response: "TenantDetailResponse"
         idempotency_required: true
         audit_events:
           - "tenant_reactivated"
+        rules:
+          - "Only suspended tenants MAY be reactivated in the initial product version."
+          - "Deactivated tenants MUST NOT be reactivated in the initial product version."
       - id: "deactivate_tenant"
         method: "POST"
         path: "/api/platform/tenants/{tenantId}/deactivate"
-        purpose: "Deactivate a tenant."
+        purpose: "Deactivate a tenant as a terminal lifecycle action for the initial product version."
         request: "ReasonCommandRequest"
         response: "TenantDetailResponse"
         idempotency_required: true
@@ -163,13 +171,17 @@ endpoint_groups:
       - id: "retry_tenant_provisioning"
         method: "POST"
         path: "/api/platform/tenants/{tenantId}/provisioning/retry"
-        purpose: "Retry failed provisioning from failed step."
+        purpose: "Retry failed provisioning idempotently without destructive automatic cleanup."
         request: "ReasonCommandRequest"
         response: "TenantProvisioningResponse"
         idempotency_required: true
         audit_events:
           - "tenant_provisioning_retry_requested"
           - "tenant_provisioning_retry_started"
+        rules:
+          - "Retry MUST be allowed only when tenant lifecycle status is provisioning_failed."
+          - "Retry MUST NOT drop an existing tenant database automatically."
+          - "Retry MUST recheck already-created resources before creating missing resources."
 
   tenant_schema_jobs:
     base_path: "/api/platform/tenants/{tenantId}"
@@ -276,6 +288,7 @@ request_response_contracts:
   CreateTenantRequest:
     required_fields:
       - "tenantDisplayName"
+      - "tenantSlug"
       - "tenantOwnerFullName"
       - "tenantOwnerEmail"
       - "businessType"
@@ -284,9 +297,25 @@ request_response_contracts:
       - "timezone"
       - "initialPlan"
     optional_fields:
-      - "tenantSlug"
       - "tenantOwnerPhone"
       - "notes"
+    rules:
+      - "tenantSlug MUST be safe for {tenant}.iotables.net subdomain use."
+      - "tenantSlug MUST be globally unique and immutable after creation."
+      - "businessType MUST use the tenant setup allowed business type catalog."
+  TenantDetailResponse:
+    fields:
+      - "tenantId"
+      - "tenantDisplayName"
+      - "tenantSlug"
+      - "tenantDomain"
+      - "lifecycleStatus"
+      - "provisioningStatus"
+      - "tenantDatabaseStatus"
+      - "tenantSchemaVersion"
+      - "operationsActivationSummary"
+    rules:
+      - "operationsActivationSummary MAY be read from tenant database for platform inspection but MUST NOT be mutated by platform API."
   ReasonCommandRequest:
     required_fields:
       - "reason"
@@ -315,10 +344,15 @@ forbidden_behavior:
   - "platform_api_without_authentication"
   - "platform_api_for_non_platform_owner"
   - "tenant_operational_endpoint_under_platform_api"
+  - "platform_api_directly_activating_tenant_operations"
   - "mutation_without_idempotency_key"
   - "state_change_without_audit"
   - "list_endpoint_without_pagination"
   - "custom_error_shape_outside_problem_details"
+  - "reactivate_deactivated_tenant_initial_version"
+  - "create_tenant_without_tenant_slug"
+  - "tenant_slug_update_after_creation"
+  - "provisioning_retry_dropping_existing_tenant_database"
 
 open_decisions: []
 
