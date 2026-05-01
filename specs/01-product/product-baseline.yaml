@@ -29,6 +29,29 @@ multi_tenancy:
     - "Platform database records MAY reference tenant registry identifiers."
     - "Tenant databases MUST NOT store global platform control-plane data."
 
+platform_scope:
+  platform_user_model: "single_platform_owner"
+  platform_roles:
+    - "platform_owner"
+  platform_responsibilities:
+    - "tenant_lifecycle"
+    - "tenant_creation"
+    - "tenant_provisioning"
+    - "tenant_schema_jobs"
+    - "platform_audit"
+    - "system_health"
+    - "platform_settings"
+  excluded_responsibilities:
+    - "tenant_customer_operations"
+    - "tenant_menu_management"
+    - "tenant_order_operations"
+    - "tenant_station_operations"
+    - "tenant_checkout_operations"
+  rules:
+    - "The platform control plane is operated by platform_owner."
+    - "The platform control plane MUST NOT expose tenant operational workflows."
+    - "The platform control plane MUST manage tenant lifecycle, provisioning, schema jobs, platform audit, system health, and platform settings."
+
 platform_database_scope:
   owns:
     - "tenant_registry"
@@ -62,7 +85,7 @@ provisioning_lifecycle:
   creation_flow:
     - step: 1
       id: "create_tenant_record"
-      actor: "platform_admin"
+      actor: "platform_owner"
       result: "A tenant registry record is created in the platform database."
     - step: 2
       id: "assign_tenant_slug"
@@ -109,14 +132,14 @@ provisioning_lifecycle:
       customer_ordering: "blocked"
       table_device_connections: "rejected"
       tenant_data: "preserved"
-      reactivation_actor: "platform_admin"
+      reactivation_actor: "platform_owner"
     deactivated:
       tenant_domain_access: "blocked"
       tenant_user_login: "blocked"
       customer_ordering: "blocked"
       table_device_connections: "rejected"
       tenant_database_state: "preserved_locked"
-      reactivation_actor: "platform_admin"
+      reactivation_actor: "platform_owner"
 
 tenant_database_schema_change_orchestration:
   owner: "platform"
@@ -133,7 +156,7 @@ tenant_database_schema_change_orchestration:
     - "A failed tenant schema change MUST NOT corrupt other tenant databases."
     - "A failed tenant schema change MUST be resumable from the platform control plane."
     - "A new tenant database MUST be created with the latest available tenant schema."
-    - "Platform users MUST be able to inspect tenant schema change job status per tenant."
+    - "Platform owner MUST be able to inspect tenant schema change job status per tenant."
 
 route_namespace_standard:
   platform_control_plane: "https://platform.iotables.net/**"
@@ -171,9 +194,6 @@ authentication_authorization:
     namespace_rule: "Platform permissions and tenant permissions MUST be separate namespaces."
   platform_roles:
     - "platform_owner"
-    - "platform_admin"
-    - "platform_support_operator"
-    - "platform_support_readonly"
   tenant_roles:
     - "tenant_owner"
     - "tenant_admin"
@@ -187,7 +207,7 @@ authentication_authorization:
     - "Roles MUST be assigned to users for operational manageability."
     - "Permissions MUST be used as the backend enforcement unit."
     - "Owner roles MUST receive all permissions inside their scope."
-    - "Platform roles MUST NOT grant tenant database operational permissions unless explicitly mapped through tenant-scoped permissions."
+    - "The platform_owner role MUST NOT grant tenant database operational permissions unless explicitly mapped through tenant-scoped permissions."
     - "Tenant roles MUST NOT grant platform control-plane permissions."
     - "Authentication tokens MUST carry enough claims to resolve user identity, tenant context, and permission scope."
 
@@ -216,6 +236,7 @@ payment_checkout_scope:
     - "Payment collection is handled outside IoTable."
 
 customer_ordering_session_baseline:
+  status: "partially_defined"
   menu_access:
     qr_scan_opens_menu: true
     order_required_to_create_bill_session: true
@@ -224,7 +245,6 @@ customer_ordering_session_baseline:
     scope: "table"
     creation_trigger: "first_submitted_order_for_table"
     shared_by_multiple_customers: true
-    customer_join_behavior: "qr_customer_joins_existing_active_table_bill_session_when_present"
     customer_can_view_bill: true
     closing_actor: "cashier"
     closing_trigger: "manual_payment_received_recorded_by_cashier"
@@ -243,6 +263,7 @@ customer_ordering_session_baseline:
     station_acceptance_required: true
     station_ready_mark_required: true
   qr_presence_security:
+    status: "requires_deeper_modeling"
     model: "single_use_current_qr_required_for_join_cart_mutation_and_order_submission"
     qr_display_device: "esp32_tft_display"
     qr_rotation_interval_seconds: 60
@@ -253,21 +274,6 @@ customer_ordering_session_baseline:
     store_token_plaintext: false
     token_hash_algorithm: "SHA-256"
     token_reuse_allowed: false
-    expired_qr_menu_access: false
-    expired_qr_cart_editing: false
-    expired_qr_existing_bill_join: false
-    expired_qr_order_submission: false
-    current_qr_menu_access: true
-    current_qr_cart_editing: true
-    current_qr_existing_bill_join: true
-    current_qr_order_submission: true
-    cookie_authority: "client_continuity_only"
-    qr_authority: "presence_proof_for_menu_join_cart_mutation_and_order_submission"
-    submit_order_requires_fresh_qr_scan: true
-    cart_mutation_requires_fresh_qr_scan: true
-    bill_join_requires_fresh_qr_scan: true
-    qr_registry_scope: "active_table_bill_session"
-    qr_registry_retention: "until_bill_session_closed"
     known_invalid_qr_response:
       response_type: "controlled_qr_status_page"
       http_status: 410
@@ -286,47 +292,11 @@ customer_ordering_session_baseline:
     unknown_qr_response:
       response_type: "generic_invalid_or_not_found"
       http_status: 404
-    bill_close_effect:
-      - "invalidate_all_qr_tokens_for_bill_session"
-      - "remove_bill_session_join_capability"
-      - "prevent_any_action_from_closed_bill_qr"
-    rules:
-      - "The ESP32 table device MUST display a server-generated QR code on a TFT screen."
-      - "The displayed QR code MUST rotate every 60 seconds."
-      - "The displayed QR code MUST rotate immediately after a successful customer join."
-      - "A QR token MUST be usable by only one customer join action."
-      - "A reused QR token MUST be rejected for customer join, cart mutation, and order submission."
-      - "QR tokens MUST be stored as hashes, not plaintext."
-      - "QR token validation MUST use indexed token hash lookup."
-      - "An expired QR code MUST NOT be used to open the menu."
-      - "An expired QR code MUST NOT be used to join a table bill session."
-      - "An expired QR code MUST NOT be used to mutate cart state."
-      - "An expired QR code MUST NOT authorize order submission."
-      - "Menu access MUST require a current QR token."
-      - "Bill session join MUST require a current QR token."
-      - "Cart mutation MUST require a current QR token."
-      - "Order submission MUST require a current QR token."
-      - "Cookie state MUST NOT authorize menu access."
-      - "Cookie state MUST NOT authorize bill session join."
-      - "Cookie state MUST NOT authorize cart mutation."
-      - "Cookie state MUST NOT authorize order submission."
-      - "QR token freshness MUST be verified server-side when the menu is opened."
-      - "QR token freshness MUST be verified server-side when joining a bill session."
-      - "QR token freshness MUST be verified server-side when cart state is mutated."
-      - "QR token freshness MUST be verified server-side when an order is submitted."
-      - "A known expired, consumed, or replaced QR token MUST return a controlled QR status page."
-      - "The controlled QR status page MUST explain why access failed and instruct the guest to scan the current table QR."
-      - "A known invalid QR token MUST NOT return a generic 404."
-      - "An unknown or malformed QR token MAY return a generic invalid or not found response."
-      - "A copied QR image MUST become unable to perform any customer action after its rotation expires or after it is consumed."
-      - "Closing a table bill session MUST invalidate all QR tokens linked to that bill session."
   rules:
-    - "Scanning a QR code MUST open the customer menu surface only when the QR token is current and unused."
     - "A table bill session MUST NOT exist only because the menu was opened."
     - "A table bill session MUST be created when the first order is submitted for the table."
     - "Multiple customers MAY participate at the same table."
     - "Customers joining the same table MUST write orders to the same table bill session."
-    - "The customer MUST be able to view the table bill session after joining with a current QR token."
     - "The cashier MUST close the table bill session manually after external payment collection."
     - "Submitted order items MUST be routed to the relevant station workflow."
     - "Stations MUST acknowledge accepted work."
@@ -334,9 +304,7 @@ customer_ordering_session_baseline:
 
 stakeholders:
   - id: "platform_owner"
-    primary_goal: "Manage the entire IoTable installation and observe tenant lifecycle state."
-  - id: "platform_admin_support"
-    primary_goal: "Create tenants and inspect provisioning jobs."
+    primary_goal: "Manage the IoTable platform control plane and observe tenant lifecycle state."
   - id: "tenant_owner"
     primary_goal: "Configure the cafe or restaurant and complete initial setup."
   - id: "tenant_manager"
@@ -356,7 +324,6 @@ application_surface_families:
   - id: "platform_control_plane"
     audience:
       - "platform_owner"
-      - "platform_admin_support"
     route_family:
       - "https://platform.iotables.net/**"
   - id: "tenant_setup_console"
@@ -388,7 +355,6 @@ application_surface_families:
   - id: "identity_activation"
     audience:
       - "platform_owner"
-      - "platform_admin_support"
       - "tenant_owner"
       - "tenant_manager"
       - "cashier_floor_staff"
@@ -416,7 +382,6 @@ api_families:
   - id: "platform_api"
     audience:
       - "platform_owner"
-      - "platform_admin_support"
     route_family:
       - "https://platform.iotables.net/api/platform/**"
   - id: "customer_public_api"
@@ -435,7 +400,7 @@ api_families:
 
 open_product_decisions:
   - id: "PD-001"
-    topic: "Individual customer order tracking granularity"
+    topic: "Customer session, QR, and bill membership model"
     status: "open"
   - id: "PD-002"
     topic: "QR token server-side rotation registry design"
@@ -444,28 +409,24 @@ open_product_decisions:
     topic: "Admin panel application and deployment split"
     status: "open"
   - id: "PD-004"
-    topic: "Station and order routing model"
+    topic: "ESP32 device identity model"
     status: "open"
   - id: "PD-005"
-    topic: "Full module inventory"
-    status: "open"
-  - id: "PD-006"
-    topic: "Architecture style decision"
+    topic: "Permission catalog and role-permission matrix"
     status: "open"
 
 done_when:
   - "product_identity_is_defined"
   - "multi_tenancy_baseline_is_defined"
+  - "platform_scope_is_defined"
+  - "single_platform_owner_model_is_defined"
   - "provisioning_lifecycle_is_defined"
   - "tenant_status_behavior_is_defined"
   - "tenant_database_schema_change_orchestration_is_defined"
   - "route_namespace_standard_is_defined"
   - "authentication_authorization_baseline_is_defined"
   - "payment_checkout_scope_is_defined"
-  - "customer_ordering_session_baseline_is_defined"
-  - "qr_presence_security_baseline_is_defined"
-  - "single_use_qr_join_behavior_is_defined"
-  - "known_invalid_qr_recovery_behavior_is_defined"
+  - "customer_ordering_session_baseline_is_partially_defined"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
