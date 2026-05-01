@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables and station, menu setup, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
+  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables and station, menu setup, staff setup, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
   applies_to:
     - "tenant_setup_console"
     - "tenant_owner_activation"
@@ -241,6 +241,60 @@ station_routing_policy:
     - "Station routing MUST be validated before operations activation."
     - "Station routing MUST be revalidated before order submission."
 
+staff_setup:
+  required_for_operations_activation: false
+  setup_step_can_be_skipped: true
+  ui_model: "preset_driven_invitation_form"
+  invitation_fields:
+    required:
+      - "display_name"
+      - "email"
+      - "role"
+    optional:
+      - "phone"
+      - "station_assignment"
+  role_selection:
+    control: "dropdown"
+    source: "fixed_tenant_role_catalog"
+    allowed_roles:
+      - "tenant_admin"
+      - "tenant_manager"
+      - "cashier"
+      - "floor_staff"
+      - "station_operator"
+      - "accountant"
+  common_staff_presets:
+    - id: "manager"
+      label: "Manager"
+      default_role: "tenant_manager"
+    - id: "cashier"
+      label: "Cashier"
+      default_role: "cashier"
+    - id: "floor_staff"
+      label: "Floor Staff"
+      default_role: "floor_staff"
+    - id: "station_operator"
+      label: "Station Operator"
+      default_role: "station_operator"
+      station_assignment_recommended: true
+    - id: "accountant"
+      label: "Accountant"
+      default_role: "accountant"
+  quick_add_behavior:
+    allow_multiple_rows: true
+    allow_preset_selection: true
+    allow_role_dropdown_change: true
+    send_invites_after_save: true
+    allow_skip_step: true
+  rules:
+    - "Staff setup MUST remain optional for operations activation."
+    - "Tenant setup console MUST provide preset-driven staff invitation."
+    - "Role selection MUST use fixed tenant role dropdown values."
+    - "Tenant owner role MUST NOT be assignable from the staff setup quick-add form."
+    - "Platform roles MUST NOT be assignable from tenant staff setup."
+    - "Station assignment MAY be recommended for station_operator invites."
+    - "Staff invitation MUST respect tenant.staff.invite and tenant.staff.assign_roles permissions."
+
 setup_steps:
   - id: "business_profile"
     required: true
@@ -311,7 +365,11 @@ setup_steps:
       - "Variants and modifiers MUST NOT be configured in the initial product version."
   - id: "staff_users"
     required: false
-    purpose: "Invite tenant staff users and assign fixed roles."
+    purpose: "Optionally invite tenant staff users using common presets and fixed role dropdowns."
+    rules:
+      - "Staff setup MUST be skippable."
+      - "Common staff presets MUST be available."
+      - "Role selection MUST be dropdown-based and limited to fixed tenant roles."
   - id: "devices"
     required: false
     purpose: "Pair ESP32 table QR display devices."
@@ -384,6 +442,7 @@ operations_activation_gates:
   rules:
     - "Default test tables 000 and 999 MUST NOT count as active operational tables for activation gates."
     - "Default MAIN station MUST count as an active station for activation gates."
+    - "Staff users MUST NOT be required for operations activation."
     - "Operations activation MUST fail when there is no active operational table besides default test tables."
     - "Operations activation MUST fail when no active station exists."
     - "Operations activation MUST fail when no active orderable menu item exists."
@@ -424,6 +483,9 @@ forbidden_behavior:
   - "menu_item_variants_in_initial_version"
   - "menu_item_modifiers_in_initial_version"
   - "menu_item_stock_tracking_in_initial_version"
+  - "staff_users_required_for_operations_activation"
+  - "tenant_owner_role_assigned_from_staff_quick_add"
+  - "platform_role_assigned_from_tenant_staff_setup"
 
 open_decisions: []
 
@@ -438,6 +500,7 @@ done_when:
   - "menu_category_model_is_defined"
   - "menu_item_model_is_defined"
   - "station_routing_policy_is_defined"
+  - "staff_setup_is_defined"
   - "setup_steps_are_defined"
   - "default_seed_tables_are_defined"
   - "operations_activation_gates_are_defined"
