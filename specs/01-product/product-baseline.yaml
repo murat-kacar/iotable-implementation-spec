@@ -242,6 +242,30 @@ customer_ordering_session_baseline:
     submitted_items_route_to_station: true
     station_acceptance_required: true
     station_ready_mark_required: true
+  qr_presence_security:
+    model: "fresh_qr_required_for_order_submission"
+    qr_display_device: "esp32_tft_display"
+    qr_rotation_interval_seconds: 60
+    server_generated_qr: true
+    expired_qr_menu_access: true
+    expired_qr_cart_editing: true
+    expired_qr_existing_bill_join: true
+    expired_qr_order_submission: false
+    current_qr_order_submission: true
+    cookie_authority: "client_continuity_only"
+    qr_authority: "order_submission_presence_proof"
+    submit_order_requires_fresh_qr_scan: true
+    rules:
+      - "The ESP32 table device MUST display a server-generated QR code on a TFT screen."
+      - "The displayed QR code MUST rotate every 60 seconds."
+      - "An expired QR code MAY be used to open the menu."
+      - "An expired QR code MAY be used to add items to the client-side cart."
+      - "An expired QR code MAY be used to join an existing table bill session."
+      - "An expired QR code MUST NOT authorize order submission."
+      - "Order submission MUST require a fresh QR token from the current table QR rotation."
+      - "Cookie state MUST NOT authorize order submission."
+      - "QR token freshness MUST be verified server-side when an order is submitted."
+      - "A copied QR image MUST become unable to submit orders after its rotation expires."
   rules:
     - "Scanning a QR code MUST open the customer menu surface."
     - "A table bill session MUST NOT exist only because the menu was opened."
@@ -357,24 +381,21 @@ api_families:
 
 open_product_decisions:
   - id: "PD-001"
-    topic: "ESP32 device identity model"
-    status: "open"
-  - id: "PD-002"
-    topic: "QR token semantic model"
-    status: "open"
-  - id: "PD-003"
     topic: "Individual customer order tracking granularity"
     status: "open"
-  - id: "PD-004"
+  - id: "PD-002"
+    topic: "QR token server-side rotation registry design"
+    status: "open"
+  - id: "PD-003"
     topic: "Admin panel application and deployment split"
     status: "open"
-  - id: "PD-005"
+  - id: "PD-004"
     topic: "Station and order routing model"
     status: "open"
-  - id: "PD-006"
+  - id: "PD-005"
     topic: "Full module inventory"
     status: "open"
-  - id: "PD-007"
+  - id: "PD-006"
     topic: "Architecture style decision"
     status: "open"
 
@@ -388,6 +409,7 @@ done_when:
   - "authentication_authorization_baseline_is_defined"
   - "payment_checkout_scope_is_defined"
   - "customer_ordering_session_baseline_is_defined"
+  - "qr_presence_security_baseline_is_defined"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
