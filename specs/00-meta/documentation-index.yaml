@@ -71,12 +71,16 @@ specification_sections:
   - id: "02-system-architecture"
     path: "specs/02-system-architecture"
     schema_path: "schemas/02-system-architecture"
-    purpose: "Defines system architecture, module boundaries, runtime topology, and architectural decisions."
+    purpose: "Defines system architecture, module boundaries, runtime topology, frontend application isolation, and architectural decisions."
     required: true
     documents:
       - id: "02-system-architecture.architecture-style"
         path: "specs/02-system-architecture/architecture-style.yaml"
         schema_file: "schemas/02-system-architecture/architecture-style.schema.json"
+        status: "draft"
+      - id: "02-system-architecture.frontend-application-split"
+        path: "specs/02-system-architecture/frontend-application-split.yaml"
+        schema_file: "schemas/02-system-architecture/frontend-application-split.schema.json"
         status: "draft"
 
   - id: "03-domain"
@@ -221,8 +225,5 @@ open_items:
     topic: "Resolve customer session and QR membership model."
     status: "open"
   - id: "IDX-002"
-    topic: "Define admin panel application and deployment split."
-    status: "open"
-  - id: "IDX-003"
     topic: "Define concrete backend solution and project folder structure."
     status: "open"
