@@ -1,0 +1,307 @@
+document:
+  id: "08-data-contracts.platform-data"
+  title: "IoTable Platform Data Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/08-data-contracts/platform-data.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the platform database contract for platform-owned users, tenant lifecycle, tenant domains, tenant databases, provisioning jobs, schema jobs, settings, audit, and idempotency."
+  database_name: "iotable_platform"
+  database_engine: "PostgreSQL 17"
+
+platform_database_policy:
+  id_strategy: "uuid"
+  timestamp_fields:
+    - "created_at"
+    - "updated_at"
+  soft_delete: false
+  audit_strategy: "append_only_platform_audit_log"
+  tenant_operational_data_allowed: false
+  rules:
+    - "Platform database MUST NOT store tenant operational data."
+    - "Platform database MUST store platform control-plane data only."
+    - "Tenant lifecycle MUST be represented by explicit status fields."
+    - "Audit records MUST be append-only."
+    - "Mutation idempotency MUST be stored in platform_idempotency_keys."
+    - "Tenant database identifiers MAY be stored in the platform database."
+    - "Tenant database secrets MUST NOT be stored as plaintext."
+    - "Soft delete MUST NOT be used for platform lifecycle records."
+
+schemas:
+  default_schema: "public"
+  rules:
+    - "Platform tables MUST be created in the platform database."
+    - "Platform tables MUST NOT be created in tenant databases."
+
+tables:
+  - name: "platform_users"
+    purpose: "Store platform owner identity records."
+    owner_module: "platform_identity_access"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "email", type: "citext", nullable: false, unique: true }
+      - { name: "display_name", type: "text", nullable: false }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["active", "disabled"] }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_platform_users_email", columns: ["email"], unique: true }
+
+  - name: "platform_roles"
+    purpose: "Store platform role definitions."
+    owner_module: "platform_identity_access"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "code", type: "text", nullable: false, unique: true, allowed_values: ["platform_owner"] }
+      - { name: "display_name", type: "text", nullable: false }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_platform_roles_code", columns: ["code"], unique: true }
+
+  - name: "platform_user_roles"
+    purpose: "Assign platform roles to platform users."
+    owner_module: "platform_identity_access"
+    columns:
+      - { name: "platform_user_id", type: "uuid", nullable: false, references: "platform_users.id" }
+      - { name: "platform_role_id", type: "uuid", nullable: false, references: "platform_roles.id" }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+    primary_key:
+      - "platform_user_id"
+      - "platform_role_id"
+
+  - name: "tenants"
+    purpose: "Store tenant registry and lifecycle status."
+    owner_module: "platform_tenant_lifecycle"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "display_name", type: "text", nullable: false }
+      - { name: "slug", type: "text", nullable: false, unique: true }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["draft", "provisioning", "pending_activation", "active", "suspended", "deactivated"] }
+      - { name: "business_type", type: "text", nullable: false, allowed_values: ["cafe", "restaurant", "fast_casual", "food_court", "bar_pub", "other"] }
+      - { name: "default_locale", type: "text", nullable: false }
+      - { name: "default_currency", type: "text", nullable: false }
+      - { name: "timezone", type: "text", nullable: false }
+      - { name: "notes", type: "text", nullable: true }
+      - { name: "created_by_platform_user_id", type: "uuid", nullable: false, references: "platform_users.id" }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_tenants_slug", columns: ["slug"], unique: true }
+      - { name: "ix_tenants_status", columns: ["status"] }
+
+  - name: "tenant_domains"
+    purpose: "Store tenant domain assignment derived from tenant slug."
+    owner_module: "platform_tenant_lifecycle"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "tenant_id", type: "uuid", nullable: false, references: "tenants.id" }
+      - { name: "domain", type: "text", nullable: false, unique: true }
+      - { name: "is_primary", type: "boolean", nullable: false }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_tenant_domains_domain", columns: ["domain"], unique: true }
+      - { name: "ux_tenant_domains_primary", columns: ["tenant_id", "is_primary"], unique: false }
+
+  - name: "tenant_databases"
+    purpose: "Store tenant database registry metadata."
+    owner_module: "platform_tenant_lifecycle"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "tenant_id", type: "uuid", nullable: false, references: "tenants.id", unique: true }
+      - { name: "database_name", type: "text", nullable: false, unique: true }
+      - { name: "connection_secret_ref", type: "text", nullable: false }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["creating", "ready", "failed", "locked"] }
+      - { name: "current_schema_version", type: "text", nullable: true }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_tenant_databases_tenant_id", columns: ["tenant_id"], unique: true }
+      - { name: "ux_tenant_databases_database_name", columns: ["database_name"], unique: true }
+
+  - name: "tenant_owner_activation_invites"
+    purpose: "Store tenant owner activation invite records."
+    owner_module: "platform_tenant_lifecycle"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "tenant_id", type: "uuid", nullable: false, references: "tenants.id" }
+      - { name: "owner_full_name", type: "text", nullable: false }
+      - { name: "owner_email", type: "citext", nullable: false }
+      - { name: "owner_phone", type: "text", nullable: true }
+      - { name: "token_hash", type: "text", nullable: false, unique: true }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["pending", "accepted", "expired", "revoked"] }
+      - { name: "expires_at", type: "timestamptz", nullable: false }
+      - { name: "accepted_at", type: "timestamptz", nullable: true }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_tenant_owner_activation_invites_token_hash", columns: ["token_hash"], unique: true }
+      - { name: "ix_tenant_owner_activation_invites_tenant_id", columns: ["tenant_id"] }
+
+  - name: "tenant_provisioning_jobs"
+    purpose: "Store tenant provisioning job records."
+    owner_module: "platform_provisioning_jobs"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "tenant_id", type: "uuid", nullable: false, references: "tenants.id" }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["queued", "running", "failed", "retrying", "completed", "manual_intervention_required"] }
+      - { name: "current_step", type: "text", nullable: true }
+      - { name: "failed_step", type: "text", nullable: true }
+      - { name: "failure_message", type: "text", nullable: true }
+      - { name: "retry_attempt_count", type: "integer", nullable: false }
+      - { name: "started_at", type: "timestamptz", nullable: true }
+      - { name: "completed_at", type: "timestamptz", nullable: true }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ix_tenant_provisioning_jobs_tenant_id", columns: ["tenant_id"] }
+      - { name: "ix_tenant_provisioning_jobs_status", columns: ["status"] }
+
+  - name: "tenant_provisioning_job_steps"
+    purpose: "Store provisioning job step state."
+    owner_module: "platform_provisioning_jobs"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "job_id", type: "uuid", nullable: false, references: "tenant_provisioning_jobs.id" }
+      - { name: "step_code", type: "text", nullable: false }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["pending", "running", "completed", "failed", "skipped"] }
+      - { name: "started_at", type: "timestamptz", nullable: true }
+      - { name: "completed_at", type: "timestamptz", nullable: true }
+      - { name: "failure_message", type: "text", nullable: true }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_tenant_provisioning_job_steps_job_step", columns: ["job_id", "step_code"], unique: true }
+
+  - name: "tenant_schema_change_jobs"
+    purpose: "Store tenant schema change job records."
+    owner_module: "platform_database_schema_orchestration"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "target_schema_version", type: "text", nullable: false }
+      - { name: "mode", type: "text", nullable: false, allowed_values: ["check", "apply_latest"] }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["queued", "running", "failed", "completed"] }
+      - { name: "created_by_platform_user_id", type: "uuid", nullable: true, references: "platform_users.id" }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ix_tenant_schema_change_jobs_status", columns: ["status"] }
+
+  - name: "tenant_schema_change_job_runs"
+    purpose: "Store per-tenant schema job execution result."
+    owner_module: "platform_database_schema_orchestration"
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "job_id", type: "uuid", nullable: false, references: "tenant_schema_change_jobs.id" }
+      - { name: "tenant_id", type: "uuid", nullable: false, references: "tenants.id" }
+      - { name: "from_schema_version", type: "text", nullable: true }
+      - { name: "to_schema_version", type: "text", nullable: true }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["queued", "running", "failed", "completed", "skipped"] }
+      - { name: "failure_message", type: "text", nullable: true }
+      - { name: "started_at", type: "timestamptz", nullable: true }
+      - { name: "completed_at", type: "timestamptz", nullable: true }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ux_tenant_schema_change_job_runs_job_tenant", columns: ["job_id", "tenant_id"], unique: true }
+      - { name: "ix_tenant_schema_change_job_runs_tenant_id", columns: ["tenant_id"] }
+      - { name: "ix_tenant_schema_change_job_runs_status", columns: ["status"] }
+
+  - name: "tenant_schema_versions"
+    purpose: "Store latest known schema version for each tenant database."
+    owner_module: "platform_database_schema_orchestration"
+    columns:
+      - { name: "tenant_id", type: "uuid", nullable: false, primary_key: true, references: "tenants.id" }
+      - { name: "schema_version", type: "text", nullable: false }
+      - { name: "checked_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+
+  - name: "platform_settings"
+    purpose: "Store editable platform settings."
+    owner_module: "platform_settings"
+    columns:
+      - { name: "setting_id", type: "text", nullable: false, primary_key: true }
+      - { name: "value", type: "jsonb", nullable: false }
+      - { name: "updated_by_platform_user_id", type: "uuid", nullable: true, references: "platform_users.id" }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+
+  - name: "platform_audit_log"
+    purpose: "Store append-only platform audit records."
+    owner_module: "platform_audit"
+    append_only: true
+    columns:
+      - { name: "id", type: "uuid", nullable: false, primary_key: true }
+      - { name: "event_type", type: "text", nullable: false }
+      - { name: "actor_type", type: "text", nullable: false, allowed_values: ["platform_owner", "system"] }
+      - { name: "actor_id", type: "uuid", nullable: true, references: "platform_users.id" }
+      - { name: "tenant_id", type: "uuid", nullable: true, references: "tenants.id" }
+      - { name: "job_id", type: "uuid", nullable: true }
+      - { name: "severity", type: "text", nullable: false, allowed_values: ["info", "warning", "critical"] }
+      - { name: "reason", type: "text", nullable: true }
+      - { name: "metadata", type: "jsonb", nullable: false }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ix_platform_audit_log_event_type", columns: ["event_type"] }
+      - { name: "ix_platform_audit_log_severity", columns: ["severity"] }
+      - { name: "ix_platform_audit_log_tenant_id", columns: ["tenant_id"] }
+      - { name: "ix_platform_audit_log_job_id", columns: ["job_id"] }
+      - { name: "ix_platform_audit_log_created_at", columns: ["created_at"] }
+
+  - name: "platform_idempotency_keys"
+    purpose: "Store idempotency records for platform mutation requests."
+    owner_module: "platform_api"
+    columns:
+      - { name: "idempotency_key", type: "text", nullable: false, primary_key: true }
+      - { name: "request_hash", type: "text", nullable: false }
+      - { name: "response_status", type: "integer", nullable: true }
+      - { name: "response_body", type: "jsonb", nullable: true }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["processing", "completed", "failed"] }
+      - { name: "expires_at", type: "timestamptz", nullable: false }
+      - { name: "created_at", type: "timestamptz", nullable: false }
+      - { name: "updated_at", type: "timestamptz", nullable: false }
+    indexes:
+      - { name: "ix_platform_idempotency_keys_expires_at", columns: ["expires_at"] }
+
+forbidden_tables:
+  - "restaurant_menus"
+  - "restaurant_tables"
+  - "restaurant_orders"
+  - "guest_sessions"
+  - "kitchen_station_workflows"
+  - "checkout_records"
+  - "tenant_staff_operational_records"
+
+constraint_rules:
+  - id: "PDC-001"
+    rule: "Tenant slug MUST be globally unique."
+  - id: "PDC-002"
+    rule: "Tenant domain MUST be globally unique."
+  - id: "PDC-003"
+    rule: "Tenant database name MUST be globally unique."
+  - id: "PDC-004"
+    rule: "Platform audit log MUST be append-only."
+  - id: "PDC-005"
+    rule: "platform_idempotency_keys MUST prevent duplicate execution of mutation requests with the same idempotency key."
+  - id: "PDC-006"
+    rule: "connection_secret_ref MUST reference external secret storage and MUST NOT contain plaintext credentials."
+
+open_decisions: []
+
+done_when:
+  - "platform_database_policy_is_defined"
+  - "platform_identity_tables_are_defined"
+  - "tenant_lifecycle_tables_are_defined"
+  - "tenant_provisioning_tables_are_defined"
+  - "tenant_schema_job_tables_are_defined"
+  - "platform_settings_table_is_defined"
+  - "platform_audit_table_is_defined"
+  - "platform_idempotency_table_is_defined"
+  - "forbidden_platform_tables_are_defined"
+  - "platform_data_constraint_rules_are_defined"
