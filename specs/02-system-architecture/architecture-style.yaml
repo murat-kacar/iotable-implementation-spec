@@ -1,0 +1,165 @@
+document:
+  id: "02-system-architecture.architecture-style"
+  title: "IoTable Architecture Style"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/02-system-architecture/architecture-style.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the primary architecture style for IoTable implementation."
+  applies_to:
+    - "backend_application"
+    - "module_boundaries"
+    - "runtime_deployment"
+    - "database_access"
+    - "inter_module_integration"
+    - "implementation_planning"
+
+selected_architecture:
+  primary_style: "modular_monolith"
+  backend_deployable: "single_backend_deployable"
+  module_structure: "business_capability_modules"
+  internal_module_architecture: "clean_architecture_per_module"
+  inter_module_integration: "in_process_application_contracts_and_domain_events"
+  external_service_split: "not_allowed_by_default"
+  database_model:
+    platform_database: "single_platform_database"
+    tenant_database: "database_per_tenant"
+  frontend_deployment_split: "open_decision"
+
+rationale:
+  selected_because:
+    - "IoTable requires strong module boundaries but does not require independent service deployment at initial implementation."
+    - "Database-per-tenant already creates operational complexity; microservices would add unnecessary deployment, observability, and data consistency overhead."
+    - "Ubuntu VPS deployment favors a simpler runtime topology."
+    - "A modular monolith is easier for LLM coding agents to implement consistently when module ownership, contracts, and tests are explicit."
+    - "Business capability modules can be extracted later only if a real operational need appears."
+  rejected_alternatives:
+    - id: "microservices"
+      reason: "Rejected for initial implementation because it increases distributed system complexity without a validated need for independent deployment."
+    - id: "layered_monolith_without_module_boundaries"
+      reason: "Rejected because it does not protect business capability ownership strongly enough."
+    - id: "frontend_backend_split_as_primary_architecture"
+      reason: "Rejected because frontend/backend is an implementation axis, not a business capability boundary."
+
+module_boundary_rules:
+  - id: "MBR-001"
+    rule: "Business capability modules are the primary architecture boundary."
+  - id: "MBR-002"
+    rule: "A module MUST own its application services, domain rules, data contracts, API contracts, and tests for its capability."
+  - id: "MBR-003"
+    rule: "A module MUST NOT directly mutate another module's owned data."
+  - id: "MBR-004"
+    rule: "Cross-module behavior MUST use explicit application contracts, domain events, or documented integration points."
+  - id: "MBR-005"
+    rule: "Shared modules MUST provide infrastructure behavior and MUST NOT own product behavior decisions."
+  - id: "MBR-006"
+    rule: "Platform-scope modules MUST NOT own tenant operational data."
+  - id: "MBR-007"
+    rule: "Tenant-scope modules MUST NOT own platform control-plane data."
+
+clean_architecture_rules:
+  - id: "CAR-001"
+    rule: "Each business module SHOULD be structured around domain, application, infrastructure, and presentation/API concerns."
+  - id: "CAR-002"
+    rule: "Domain rules MUST NOT depend on database, HTTP, UI, or framework-specific implementation details."
+  - id: "CAR-003"
+    rule: "Application services coordinate use cases and enforce module-level workflow rules."
+  - id: "CAR-004"
+    rule: "Infrastructure code implements persistence, external integrations, messaging, and framework adapters."
+  - id: "CAR-005"
+    rule: "API endpoints MUST call application services rather than directly mutating persistence models."
+  - id: "CAR-006"
+    rule: "Module tests MUST cover domain rules, application use cases, API contracts, and persistence boundaries when touched."
+
+runtime_topology:
+  backend:
+    deployable_count: 1
+    style: "single_aspnet_core_backend"
+    runtime: ".NET 10"
+    responsibilities:
+      - "platform_api"
+      - "tenant_internal_api"
+      - "customer_public_api"
+      - "device_realtime_endpoint"
+      - "background_jobs"
+      - "health_checks"
+  database:
+    engine: "PostgreSQL 17"
+    platform_database: "iotable_platform"
+    tenant_database_pattern: "iotable_tenant_{tenantSlug}"
+  frontend:
+    stack:
+      - "Next.js 16.2.4 LTS"
+      - "React 19.2.5 LTS"
+      - "TypeScript 6.0.3 LTS"
+      - "Tailwind CSS v4.0 LTS"
+      - "Node.js 24 LTS"
+      - "pnpm 11.0.3 LTS"
+    deployment_split: "open_decision"
+  hosting:
+    target: "ubuntu_vps"
+
+inter_module_communication:
+  default_mode: "in_process"
+  allowed_patterns:
+    - "application_service_call"
+    - "domain_event_published_in_process"
+    - "explicit_module_contract"
+  prohibited_patterns:
+    - "direct_cross_module_database_write"
+    - "implicit_shared_mutable_state"
+    - "untracked_runtime_dependency"
+    - "service_extraction_without_owner_approved_architecture_decision"
+
+background_processing:
+  default_location: "inside_backend_deployable"
+  owns:
+    - "tenant_provisioning_jobs"
+    - "tenant_schema_change_jobs"
+    - "maintenance_jobs"
+  rule: "Background jobs remain inside the modular monolith unless a future architecture decision explicitly separates them."
+
+migration_policy:
+  platform_database_migrations: "executed_for_platform_database"
+  tenant_database_migrations: "executed_by_platform_level_migration_orchestrator"
+  rule: "Tenant schema changes MUST use the platform-level migration orchestrator defined by the product baseline."
+
+service_extraction_policy:
+  default: "not_allowed"
+  allowed_only_when:
+    - "module_boundary_is_stable"
+    - "operational_need_is_documented"
+    - "data_ownership_is_clear"
+    - "deployment_and_observability_cost_is_accepted"
+    - "project_owner_approves_new_architecture_decision"
+  rule: "No module may be extracted into a separate service during initial implementation."
+
+open_decisions:
+  - id: "AS-001"
+    topic: "Admin panel application and deployment split."
+    status: "open"
+  - id: "AS-002"
+    topic: "Concrete backend solution and project folder structure."
+    status: "open"
+  - id: "AS-003"
+    topic: "Background job library selection."
+    status: "open"
+  - id: "AS-004"
+    topic: "Cache and distributed lock technology selection."
+    status: "open"
+
+done_when:
+  - "primary_architecture_style_is_selected"
+  - "rejected_architecture_styles_are_recorded"
+  - "module_boundary_rules_are_defined"
+  - "clean_architecture_rules_are_defined"
+  - "runtime_topology_is_defined"
+  - "inter_module_communication_is_defined"
+  - "migration_policy_is_defined"
+  - "service_extraction_policy_is_defined"
+  - "open_architecture_decisions_are_recorded"
