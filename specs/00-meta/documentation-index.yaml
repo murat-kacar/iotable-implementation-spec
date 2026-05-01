@@ -1,0 +1,170 @@
+document:
+  id: "00-meta.documentation-index"
+  title: "IoTable Documentation Index"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/00-meta/documentation-index.schema.json"
+  status: "draft"
+
+repository:
+  canonical_branch: "master"
+  source_root: "specs"
+  schema_root: "schemas"
+  tools_root: "tools"
+
+required_session_bootstrap:
+  rule: "Specification work MUST start by reading the required meta documents."
+  documents:
+    - path: "specs/00-meta/specification-constitution.yaml"
+      purpose: "Defines binding specification rules and LLM behavior."
+    - path: "specs/00-meta/documentation-index.yaml"
+      purpose: "Defines the specification document set and dependency order."
+
+specification_sections:
+  - id: "00-meta"
+    path: "specs/00-meta"
+    schema_path: "schemas/00-meta"
+    purpose: "Defines repository-level specification rules, policies, indexes, and execution constraints."
+    required: true
+    documents:
+      - id: "00-meta.specification-constitution"
+        path: "specs/00-meta/specification-constitution.yaml"
+        schema_file: "schemas/00-meta/specification-constitution.schema.json"
+        status: "draft"
+      - id: "00-meta.documentation-index"
+        path: "specs/00-meta/documentation-index.yaml"
+        schema_file: "schemas/00-meta/documentation-index.schema.json"
+        status: "draft"
+
+  - id: "01-product"
+    path: "specs/01-product"
+    schema_path: "schemas/01-product"
+    purpose: "Defines product identity, stakeholders, surfaces, scope, non-goals, and owner-approved behavior."
+    required: true
+    documents: []
+
+  - id: "02-system-architecture"
+    path: "specs/02-system-architecture"
+    schema_path: "schemas/02-system-architecture"
+    purpose: "Defines system architecture, module boundaries, runtime topology, and architectural decisions."
+    required: true
+    documents: []
+
+  - id: "03-domain-model"
+    path: "specs/03-domain-model"
+    schema_path: "schemas/03-domain-model"
+    purpose: "Defines business capability boundaries, aggregates, domain events, commands, queries, and ownership rules."
+    required: true
+    documents: []
+
+  - id: "04-tenancy"
+    path: "specs/04-tenancy"
+    schema_path: "schemas/04-tenancy"
+    purpose: "Defines tenant resolution, tenant lifecycle, tenant isolation, provisioning, and tenant context propagation."
+    required: true
+    documents: []
+
+  - id: "05-identity-access"
+    path: "specs/05-identity-access"
+    schema_path: "schemas/05-identity-access"
+    purpose: "Defines authentication, authorization, user roles, permissions, activation, and session behavior."
+    required: true
+    documents: []
+
+  - id: "06-application-surfaces"
+    path: "specs/06-application-surfaces"
+    schema_path: "schemas/06-application-surfaces"
+    purpose: "Maps user-facing and device-facing application surfaces to capabilities, routes, permissions, and contracts."
+    required: true
+    documents: []
+
+  - id: "07-api-contracts"
+    path: "specs/07-api-contracts"
+    schema_path: "schemas/07-api-contracts"
+    purpose: "Defines HTTP API contracts, request and response shapes, errors, pagination, idempotency, and authentication requirements."
+    required: true
+    documents: []
+
+  - id: "08-data-contracts"
+    path: "specs/08-data-contracts"
+    schema_path: "schemas/08-data-contracts"
+    purpose: "Defines database schemas, entity contracts, migrations, indexes, constraints, and data ownership."
+    required: true
+    documents: []
+
+  - id: "09-realtime-device-contracts"
+    path: "specs/09-realtime-device-contracts"
+    schema_path: "schemas/09-realtime-device-contracts"
+    purpose: "Defines realtime messaging, WebSocket contracts, ESP32 table device behavior, and device identity."
+    required: true
+    documents: []
+
+  - id: "10-implementation-plan"
+    path: "specs/10-implementation-plan"
+    schema_path: "schemas/10-implementation-plan"
+    purpose: "Defines implementation task order, dependencies, files, commands, validation, and done criteria for LLM coding agents."
+    required: true
+    documents: []
+
+  - id: "11-testing-verification"
+    path: "specs/11-testing-verification"
+    schema_path: "schemas/11-testing-verification"
+    purpose: "Defines unit, integration, contract, migration, end-to-end, security, and operational verification requirements."
+    required: true
+    documents: []
+
+  - id: "12-operations-deployment"
+    path: "specs/12-operations-deployment"
+    schema_path: "schemas/12-operations-deployment"
+    purpose: "Defines Ubuntu VPS deployment, configuration, health checks, recovery, backups, secret rotation, and maintenance."
+    required: true
+    documents: []
+
+  - id: "13-security-compliance"
+    path: "specs/13-security-compliance"
+    schema_path: "schemas/13-security-compliance"
+    purpose: "Defines security constraints, threat controls, auditability, data protection, and compliance boundaries."
+    required: true
+    documents: []
+
+  - id: "14-ui-ux-system"
+    path: "specs/14-ui-ux-system"
+    schema_path: "schemas/14-ui-ux-system"
+    purpose: "Defines UI system rules, layout principles, component conventions, accessibility rules, and interaction patterns."
+    required: true
+    documents: []
+
+  - id: "15-engineering-rules"
+    path: "specs/15-engineering-rules"
+    schema_path: "schemas/15-engineering-rules"
+    purpose: "Defines coding standards, naming conventions, dependency rules, error handling, logging, and repository conventions."
+    required: true
+    documents: []
+
+  - id: "16-research-decisions"
+    path: "specs/16-research-decisions"
+    schema_path: "schemas/16-research-decisions"
+    purpose: "Defines researched technical decisions, accepted recommendations, rejected options, and source-grounded decision records."
+    required: true
+    documents: []
+
+folder_creation_policy:
+  rule: "A specification section folder MAY exist before documents are added. Empty section folders are allowed only as repository structure markers."
+
+schema_policy:
+  rule: "Every YAML specification document MUST have a matching JSON Schema file."
+  schema_location_rule: "Schema files MUST mirror specification section paths under the schemas root."
+
+open_items:
+  - id: "IDX-001"
+    topic: "Add source policy document."
+    status: "open"
+  - id: "IDX-002"
+    topic: "Add research policy document."
+    status: "open"
+  - id: "IDX-003"
+    topic: "Add LLM execution policy document."
+    status: "open"
