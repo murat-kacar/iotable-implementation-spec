@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/08-data-contracts/tenant-setup-data.schema.json",
+  "title": "IoTable Tenant Setup Data Contracts Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "isolation_principle",
+    "platform_database_boundary",
+    "tenant_database_boundary",
+    "common_columns",
+    "tables",
+    "activation_gate_queries",
+    "firmware_data_security",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "type": "object", "additionalProperties": true },
+    "purpose": { "type": "object", "additionalProperties": true },
+    "isolation_principle": { "type": "object", "additionalProperties": true },
+    "platform_database_boundary": { "type": "object", "additionalProperties": true },
+    "tenant_database_boundary": { "type": "object", "additionalProperties": true },
+    "common_columns": { "type": "object", "additionalProperties": true },
+    "tables": { "type": "object", "additionalProperties": true },
+    "activation_gate_queries": { "type": "object", "additionalProperties": true },
+    "firmware_data_security": { "type": "object", "additionalProperties": true },
+    "forbidden_behavior": { "type": "array", "items": { "type": "string" } },
+    "open_decisions": { "type": "array" },
+    "done_when": { "type": "array", "items": { "type": "string" } }
+  }
+}
