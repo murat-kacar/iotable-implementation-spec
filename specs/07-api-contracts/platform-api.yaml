@@ -1,0 +1,338 @@
+document:
+  id: "07-api-contracts.platform-api"
+  title: "IoTable Platform API Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/07-api-contracts/platform-api.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the platform API contract surface for tenant lifecycle, provisioning, schema jobs, platform jobs, audit, settings, and health."
+  audience:
+    - "platform_owner"
+    - "llm_coding_agent"
+  base_path: "/api/platform"
+
+api_policy:
+  authentication_required: true
+  authorization: "platform_owner_only"
+  response_format: "json"
+  error_format: "problem_details"
+  pagination_required_for_lists: true
+  idempotency_required_for_mutations: true
+  audit_required_for_state_changes: true
+  command_style_mutations: true
+  rules:
+    - "Every platform API endpoint MUST require authenticated platform_owner access."
+    - "List endpoints MUST support pagination."
+    - "State-changing endpoints MUST require idempotency keys."
+    - "State-changing endpoints MUST create platform audit records when the operation succeeds or fails after validation starts."
+    - "Command-style state changes MUST use POST endpoints with explicit command names."
+    - "Platform API MUST NOT expose tenant operational workflows."
+
+common_headers:
+  request:
+    required_for_mutations:
+      - name: "Idempotency-Key"
+        type: "string"
+        required: true
+        applies_to: "state_changing_requests"
+    optional:
+      - name: "X-Correlation-Id"
+        type: "string"
+        required: false
+        applies_to: "all_requests"
+  response:
+    required:
+      - name: "X-Correlation-Id"
+        type: "string"
+        applies_to: "all_responses"
+
+common_error_contract:
+  format: "problem_details"
+  content_type: "application/problem+json"
+  fields:
+    - "type"
+    - "title"
+    - "status"
+    - "detail"
+    - "instance"
+    - "correlationId"
+    - "errors"
+  rules:
+    - "Validation failures MUST return 400 with field-level errors."
+    - "Authentication failures MUST return 401."
+    - "Authorization failures MUST return 403."
+    - "Missing resources MUST return 404."
+    - "State conflicts MUST return 409."
+    - "Idempotency conflicts MUST return 409."
+    - "Unexpected failures MUST return 500 with correlationId."
+
+pagination_contract:
+  query_parameters:
+    page:
+      type: "integer"
+      minimum: 1
+      default: 1
+    pageSize:
+      type: "integer"
+      minimum: 1
+      maximum: 100
+      default: 25
+  response_fields:
+    - "items"
+    - "page"
+    - "pageSize"
+    - "totalItems"
+    - "totalPages"
+  rules:
+    - "List responses MUST use the standard pagination response shape."
+    - "pageSize MUST NOT exceed 100."
+
+endpoint_groups:
+  tenants:
+    base_path: "/api/platform/tenants"
+    endpoints:
+      - id: "list_tenants"
+        method: "GET"
+        path: "/api/platform/tenants"
+        purpose: "List tenants with lifecycle, domain, provisioning, and activation summary."
+        query:
+          - "status"
+          - "search"
+          - "page"
+          - "pageSize"
+        response: "PaginatedTenantSummaryResponse"
+        audit: false
+      - id: "create_tenant"
+        method: "POST"
+        path: "/api/platform/tenants"
+        purpose: "Create a tenant record and start provisioning."
+        request: "CreateTenantRequest"
+        response: "TenantDetailResponse"
+        idempotency_required: true
+        audit_events:
+          - "tenant_created"
+          - "tenant_creation_failed"
+      - id: "get_tenant"
+        method: "GET"
+        path: "/api/platform/tenants/{tenantId}"
+        purpose: "Get tenant detail for platform inspection."
+        response: "TenantDetailResponse"
+        audit: false
+      - id: "suspend_tenant"
+        method: "POST"
+        path: "/api/platform/tenants/{tenantId}/suspend"
+        purpose: "Suspend a tenant."
+        request: "ReasonCommandRequest"
+        response: "TenantDetailResponse"
+        idempotency_required: true
+        audit_events:
+          - "tenant_suspended"
+      - id: "reactivate_tenant"
+        method: "POST"
+        path: "/api/platform/tenants/{tenantId}/reactivate"
+        purpose: "Reactivate a suspended or deactivated tenant when eligible."
+        request: "ReasonCommandRequest"
+        response: "TenantDetailResponse"
+        idempotency_required: true
+        audit_events:
+          - "tenant_reactivated"
+      - id: "deactivate_tenant"
+        method: "POST"
+        path: "/api/platform/tenants/{tenantId}/deactivate"
+        purpose: "Deactivate a tenant."
+        request: "ReasonCommandRequest"
+        response: "TenantDetailResponse"
+        idempotency_required: true
+        audit_events:
+          - "tenant_deactivated"
+
+  tenant_provisioning:
+    base_path: "/api/platform/tenants/{tenantId}/provisioning"
+    endpoints:
+      - id: "get_tenant_provisioning"
+        method: "GET"
+        path: "/api/platform/tenants/{tenantId}/provisioning"
+        purpose: "Get latest provisioning status for one tenant."
+        response: "TenantProvisioningResponse"
+        audit: false
+      - id: "retry_tenant_provisioning"
+        method: "POST"
+        path: "/api/platform/tenants/{tenantId}/provisioning/retry"
+        purpose: "Retry failed provisioning from failed step."
+        request: "ReasonCommandRequest"
+        response: "TenantProvisioningResponse"
+        idempotency_required: true
+        audit_events:
+          - "tenant_provisioning_retry_requested"
+          - "tenant_provisioning_retry_started"
+
+  tenant_schema_jobs:
+    base_path: "/api/platform/tenants/{tenantId}"
+    endpoints:
+      - id: "get_tenant_database"
+        method: "GET"
+        path: "/api/platform/tenants/{tenantId}/database"
+        purpose: "Get tenant database registry, health, and schema state."
+        response: "TenantDatabaseResponse"
+        audit: false
+      - id: "list_tenant_schema_jobs"
+        method: "GET"
+        path: "/api/platform/tenants/{tenantId}/schema-jobs"
+        purpose: "List schema jobs for one tenant."
+        query:
+          - "status"
+          - "page"
+          - "pageSize"
+        response: "PaginatedJobSummaryResponse"
+        audit: false
+      - id: "create_tenant_schema_job"
+        method: "POST"
+        path: "/api/platform/tenants/{tenantId}/schema-jobs"
+        purpose: "Start a tenant schema check or schema update job."
+        request: "CreateSchemaJobRequest"
+        response: "JobDetailResponse"
+        idempotency_required: true
+        audit_events:
+          - "tenant_schema_job_started"
+
+  platform_jobs:
+    base_path: "/api/platform/jobs"
+    endpoints:
+      - id: "list_platform_jobs"
+        method: "GET"
+        path: "/api/platform/jobs"
+        purpose: "List platform jobs across provisioning and schema change jobs."
+        query:
+          - "type"
+          - "status"
+          - "tenantId"
+          - "page"
+          - "pageSize"
+        response: "PaginatedJobSummaryResponse"
+        audit: false
+      - id: "get_platform_job"
+        method: "GET"
+        path: "/api/platform/jobs/{jobId}"
+        purpose: "Get one platform job detail including steps, failures, retry history, and audit trail."
+        response: "JobDetailResponse"
+        audit: false
+
+  platform_audit:
+    base_path: "/api/platform/audit"
+    endpoints:
+      - id: "list_platform_audit"
+        method: "GET"
+        path: "/api/platform/audit"
+        purpose: "List platform audit records."
+        query:
+          - "eventType"
+          - "severity"
+          - "actorType"
+          - "tenantId"
+          - "jobId"
+          - "createdFrom"
+          - "createdTo"
+          - "page"
+          - "pageSize"
+        response: "PaginatedPlatformAuditResponse"
+        audit: false
+
+  platform_settings:
+    base_path: "/api/platform/settings"
+    endpoints:
+      - id: "get_platform_settings"
+        method: "GET"
+        path: "/api/platform/settings"
+        purpose: "Get editable and read-only platform settings."
+        response: "PlatformSettingsResponse"
+        audit: false
+      - id: "patch_platform_settings"
+        method: "PATCH"
+        path: "/api/platform/settings"
+        purpose: "Partially update editable platform settings."
+        request: "PatchPlatformSettingsRequest"
+        response: "PlatformSettingsResponse"
+        idempotency_required: true
+        audit_events:
+          - "platform_setting_updated"
+          - "platform_setting_update_rejected"
+
+  platform_health:
+    base_path: "/api/platform/health"
+    endpoints:
+      - id: "get_platform_health"
+        method: "GET"
+        path: "/api/platform/health"
+        purpose: "Get platform health summary used by the platform UI."
+        response: "PlatformHealthResponse"
+        audit: false
+
+request_response_contracts:
+  CreateTenantRequest:
+    required_fields:
+      - "tenantDisplayName"
+      - "tenantOwnerFullName"
+      - "tenantOwnerEmail"
+      - "businessType"
+      - "defaultLocale"
+      - "defaultCurrency"
+      - "timezone"
+      - "initialPlan"
+    optional_fields:
+      - "tenantSlug"
+      - "tenantOwnerPhone"
+      - "notes"
+  ReasonCommandRequest:
+    required_fields:
+      - "reason"
+    rules:
+      - "reason MUST be non-empty."
+  CreateSchemaJobRequest:
+    required_fields:
+      - "mode"
+    allowed_modes:
+      - "check"
+      - "apply_latest"
+    optional_fields:
+      - "reason"
+  PatchPlatformSettingsRequest:
+    optional_fields:
+      - "defaultLocale"
+      - "defaultCurrency"
+      - "defaultTimezone"
+      - "tenantOwnerActivationInviteTtlHours"
+      - "provisioningRetryLimit"
+    rules:
+      - "Request MUST include at least one editable setting."
+      - "Request MUST NOT include read-only settings."
+
+forbidden_behavior:
+  - "platform_api_without_authentication"
+  - "platform_api_for_non_platform_owner"
+  - "tenant_operational_endpoint_under_platform_api"
+  - "mutation_without_idempotency_key"
+  - "state_change_without_audit"
+  - "list_endpoint_without_pagination"
+  - "custom_error_shape_outside_problem_details"
+
+open_decisions: []
+
+done_when:
+  - "platform_api_policy_is_defined"
+  - "common_headers_are_defined"
+  - "common_error_contract_is_defined"
+  - "pagination_contract_is_defined"
+  - "tenant_endpoints_are_defined"
+  - "tenant_provisioning_endpoints_are_defined"
+  - "tenant_schema_job_endpoints_are_defined"
+  - "platform_job_endpoints_are_defined"
+  - "platform_audit_endpoints_are_defined"
+  - "platform_settings_endpoints_are_defined"
+  - "platform_health_endpoint_is_defined"
+  - "request_response_contract_names_are_defined"
+  - "forbidden_api_behavior_is_defined"
