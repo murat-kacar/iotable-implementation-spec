@@ -101,6 +101,10 @@ specification_sections:
         path: "specs/03-domain/module-inventory.yaml"
         schema_file: "schemas/03-domain/module-inventory.schema.json"
         status: "draft"
+      - id: "03-domain.tenant-setup-workflows"
+        path: "specs/03-domain/tenant-setup-workflows.yaml"
+        schema_file: "schemas/03-domain/tenant-setup-workflows.schema.json"
+        status: "draft"
 
   - id: "04-tenancy"
     path: "specs/04-tenancy"
