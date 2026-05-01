@@ -157,6 +157,10 @@ specification_sections:
         path: "specs/07-api-contracts/platform-api.yaml"
         schema_file: "schemas/07-api-contracts/platform-api.schema.json"
         status: "draft"
+      - id: "07-api-contracts.tenant-setup-api"
+        path: "specs/07-api-contracts/tenant-setup-api.yaml"
+        schema_file: "schemas/07-api-contracts/tenant-setup-api.schema.json"
+        status: "draft"
 
   - id: "08-data-contracts"
     path: "specs/08-data-contracts"
