@@ -22,6 +22,12 @@ required_session_bootstrap:
       purpose: "Defines binding specification rules and LLM behavior."
     - path: "specs/00-meta/documentation-index.yaml"
       purpose: "Defines the specification document set and dependency order."
+    - path: "specs/00-meta/source-policy.yaml"
+      purpose: "Defines source authority, allowed source usage, and conflict handling."
+    - path: "specs/00-meta/research-policy.yaml"
+      purpose: "Defines research triggers, source order, fit criteria, and recommendation handling."
+    - path: "specs/00-meta/llm-execution-policy.yaml"
+      purpose: "Defines mandatory behavior for LLM specification and coding agents."
 
 specification_sections:
   - id: "00-meta"
@@ -37,6 +43,18 @@ specification_sections:
       - id: "00-meta.documentation-index"
         path: "specs/00-meta/documentation-index.yaml"
         schema_file: "schemas/00-meta/documentation-index.schema.json"
+        status: "draft"
+      - id: "00-meta.source-policy"
+        path: "specs/00-meta/source-policy.yaml"
+        schema_file: "schemas/00-meta/source-policy.schema.json"
+        status: "draft"
+      - id: "00-meta.research-policy"
+        path: "specs/00-meta/research-policy.yaml"
+        schema_file: "schemas/00-meta/research-policy.schema.json"
+        status: "draft"
+      - id: "00-meta.llm-execution-policy"
+        path: "specs/00-meta/llm-execution-policy.yaml"
+        schema_file: "schemas/00-meta/llm-execution-policy.schema.json"
         status: "draft"
 
   - id: "01-product"
@@ -91,7 +109,7 @@ specification_sections:
   - id: "08-data-contracts"
     path: "specs/08-data-contracts"
     schema_path: "schemas/08-data-contracts"
-    purpose: "Defines database schemas, entity contracts, migrations, indexes, constraints, and data ownership."
+    purpose: "Defines database schemas, entity contracts, database change scripts, indexes, constraints, and data ownership."
     required: true
     documents: []
 
@@ -112,7 +130,7 @@ specification_sections:
   - id: "11-testing-verification"
     path: "specs/11-testing-verification"
     schema_path: "schemas/11-testing-verification"
-    purpose: "Defines unit, integration, contract, migration, end-to-end, security, and operational verification requirements."
+    purpose: "Defines unit, integration, contract, database change, end-to-end, security, and operational verification requirements."
     required: true
     documents: []
 
@@ -160,11 +178,11 @@ schema_policy:
 
 open_items:
   - id: "IDX-001"
-    topic: "Add source policy document."
+    topic: "Define product baseline specification."
     status: "open"
   - id: "IDX-002"
-    topic: "Add research policy document."
+    topic: "Define business capability inventory."
     status: "open"
   - id: "IDX-003"
-    topic: "Add LLM execution policy document."
+    topic: "Define architecture style decision."
     status: "open"
