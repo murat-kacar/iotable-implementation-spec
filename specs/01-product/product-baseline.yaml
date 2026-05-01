@@ -191,6 +191,30 @@ authentication_authorization:
     - "Tenant roles MUST NOT grant platform control-plane permissions."
     - "Authentication tokens MUST carry enough claims to resolve user identity, tenant context, and permission scope."
 
+payment_checkout_scope:
+  mode: "bill_tracking_and_manual_payment_recording"
+  menu_item_prices: true
+  order_total_calculation: true
+  bill_tracking: true
+  manual_payment_status_tracking: true
+  manual_payment_method_recording: true
+  online_payment_collection: false
+  payment_gateway_integration: false
+  pos_integration: false
+  fiscal_device_integration: false
+  e_invoice_or_e_archive: false
+  rules:
+    - "IoTable MUST store menu item prices."
+    - "IoTable MUST calculate order and bill totals from tenant menu prices and ordered items."
+    - "IoTable MUST support adisyon-style bill tracking."
+    - "IoTable MAY record manually entered payment method information for operational tracking."
+    - "IoTable MUST NOT collect money directly from customers."
+    - "IoTable MUST NOT integrate with payment gateways."
+    - "IoTable MUST NOT integrate with POS devices."
+    - "IoTable MUST NOT integrate with fiscal devices."
+    - "IoTable MUST NOT generate e-invoice or e-archive documents."
+    - "Payment collection is handled outside IoTable."
+
 stakeholders:
   - id: "platform_owner"
     primary_goal: "Manage the entire IoTable installation and observe tenant lifecycle state."
@@ -294,24 +318,21 @@ api_families:
 
 open_product_decisions:
   - id: "PD-001"
-    topic: "Payment, POS, and fiscal scope"
-    status: "open"
-  - id: "PD-002"
     topic: "ESP32 device identity model"
     status: "open"
-  - id: "PD-003"
+  - id: "PD-002"
     topic: "Public customer session model"
     status: "open"
-  - id: "PD-004"
+  - id: "PD-003"
     topic: "Admin panel application and deployment split"
     status: "open"
-  - id: "PD-005"
+  - id: "PD-004"
     topic: "Station and order routing model"
     status: "open"
-  - id: "PD-006"
+  - id: "PD-005"
     topic: "Full module inventory"
     status: "open"
-  - id: "PD-007"
+  - id: "PD-006"
     topic: "Architecture style decision"
     status: "open"
 
@@ -323,6 +344,7 @@ done_when:
   - "tenant_database_schema_change_orchestration_is_defined"
   - "route_namespace_standard_is_defined"
   - "authentication_authorization_baseline_is_defined"
+  - "payment_checkout_scope_is_defined"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
