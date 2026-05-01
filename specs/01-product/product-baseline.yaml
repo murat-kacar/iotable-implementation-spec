@@ -243,29 +243,53 @@ customer_ordering_session_baseline:
     station_acceptance_required: true
     station_ready_mark_required: true
   qr_presence_security:
-    model: "fresh_qr_required_for_order_submission"
+    model: "single_use_fresh_qr_required_for_cart_mutation_and_order_submission"
     qr_display_device: "esp32_tft_display"
     qr_rotation_interval_seconds: 60
+    rotate_after_successful_join: true
     server_generated_qr: true
+    token_storage_model: "hashed_token_registry"
+    token_lookup_model: "indexed_token_hash_lookup"
+    store_token_plaintext: false
+    token_hash_algorithm: "SHA-256"
+    token_reuse_allowed: false
     expired_qr_menu_access: true
-    expired_qr_cart_editing: true
+    expired_qr_cart_editing: false
     expired_qr_existing_bill_join: true
     expired_qr_order_submission: false
+    current_qr_cart_editing: true
+    current_qr_existing_bill_join: true
     current_qr_order_submission: true
     cookie_authority: "client_continuity_only"
-    qr_authority: "order_submission_presence_proof"
+    qr_authority: "presence_proof_for_cart_mutation_and_order_submission"
     submit_order_requires_fresh_qr_scan: true
+    cart_mutation_requires_fresh_qr_scan: true
+    qr_registry_scope: "active_table_bill_session"
+    qr_registry_retention: "until_bill_session_closed"
+    bill_close_effect:
+      - "invalidate_all_qr_tokens_for_bill_session"
+      - "remove_bill_session_join_capability"
+      - "prevent_any_action_from_closed_bill_qr"
     rules:
       - "The ESP32 table device MUST display a server-generated QR code on a TFT screen."
       - "The displayed QR code MUST rotate every 60 seconds."
+      - "The displayed QR code MUST rotate immediately after a successful customer join."
+      - "A QR token MUST be usable by only one customer join action."
+      - "A reused QR token MUST be rejected for customer join, cart mutation, and order submission."
+      - "QR tokens MUST be stored as hashes, not plaintext."
+      - "QR token validation MUST use indexed token hash lookup."
       - "An expired QR code MAY be used to open the menu."
-      - "An expired QR code MAY be used to add items to the client-side cart."
-      - "An expired QR code MAY be used to join an existing table bill session."
+      - "An expired QR code MUST NOT be used to mutate cart state."
+      - "An expired QR code MAY be used to join an existing table bill session only if it belongs to the active bill session and has not already been used."
       - "An expired QR code MUST NOT authorize order submission."
+      - "Cart mutation MUST require a fresh QR token from the current table QR rotation."
       - "Order submission MUST require a fresh QR token from the current table QR rotation."
+      - "Cookie state MUST NOT authorize cart mutation."
       - "Cookie state MUST NOT authorize order submission."
+      - "QR token freshness MUST be verified server-side when cart state is mutated."
       - "QR token freshness MUST be verified server-side when an order is submitted."
-      - "A copied QR image MUST become unable to submit orders after its rotation expires."
+      - "A copied QR image MUST become unable to mutate cart or submit orders after its rotation expires or after it is consumed."
+      - "Closing a table bill session MUST invalidate all QR tokens linked to that bill session."
   rules:
     - "Scanning a QR code MUST open the customer menu surface."
     - "A table bill session MUST NOT exist only because the menu was opened."
@@ -410,6 +434,7 @@ done_when:
   - "payment_checkout_scope_is_defined"
   - "customer_ordering_session_baseline_is_defined"
   - "qr_presence_security_baseline_is_defined"
+  - "single_use_qr_join_behavior_is_defined"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
