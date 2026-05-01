@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables and station, menu setup, staff setup, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
+  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables and station, menu setup, staff setup, table device setup, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
   applies_to:
     - "tenant_setup_console"
     - "tenant_owner_activation"
@@ -112,6 +112,7 @@ table_model:
   create_fields:
     required:
       - "table_number"
+      - "has_qr_device"
     optional:
       - "display_name"
       - "area_or_section"
@@ -123,6 +124,7 @@ table_model:
     - "Operational customer tables MUST use type operational."
     - "Default test tables 000 and 999 MUST use type system_test."
     - "Disabled tables MUST NOT accept new customer ordering sessions."
+    - "Table creation MUST explicitly capture whether the table has an ESP32 QR display device."
 
 station_model:
   canonical_identifier: "station_id"
@@ -295,6 +297,45 @@ staff_setup:
     - "Station assignment MAY be recommended for station_operator invites."
     - "Staff invitation MUST respect tenant.staff.invite and tenant.staff.assign_roles permissions."
 
+device_setup:
+  required_for_operations_activation: false
+  setup_step_can_be_skipped: true
+  primary_model: "table_specific_firmware_generation"
+  canonical_specification: "specs/09-realtime-device-contracts/esp32-device-identity.yaml"
+  table_creation_behavior:
+    field: "has_qr_device"
+    if_true:
+      - "system_generates_device_id"
+      - "system_generates_device_secret"
+      - "system_generates_ws_identity"
+      - "system_generates_table_device_config"
+      - "system_generates_table_specific_firmware_ino"
+    if_false:
+      - "no_esp32_device_identity_required"
+      - "customer_self_ordering_via_table_qr_disabled"
+      - "staff_pda_ordering_enabled"
+  firmware_download:
+    artifact_is_secret: true
+    allowed_roles:
+      - "tenant_owner"
+      - "tenant_admin"
+    audit_required: true
+  firmware_regeneration:
+    allowed: true
+    effect:
+      - "old_device_secret_revoked"
+      - "new_device_secret_generated"
+      - "new_table_specific_firmware_generated"
+  rules:
+    - "Device setup MUST be optional for operations activation."
+    - "Tenant setup console MUST allow creating tables with or without ESP32 QR display device support."
+    - "When has_qr_device=true, system MUST generate table-specific firmware."
+    - "When has_qr_device=false, table MUST support staff PDA ordering only and MUST NOT support customer self-ordering through table QR."
+    - "Firmware artifact MUST be treated as a secret."
+    - "Firmware download MUST be limited to tenant_owner and tenant_admin."
+    - "Firmware regeneration MUST revoke the old device secret."
+    - "Pairing-code-based setup MUST NOT be the primary device setup model in the initial product version."
+
 setup_steps:
   - id: "business_profile"
     required: true
@@ -327,7 +368,7 @@ setup_steps:
       default_tax_display_mode: "tax_included"
   - id: "tables"
     required: true
-    purpose: "Define customer-facing operational tables."
+    purpose: "Define customer-facing operational tables and optionally generate table-specific ESP32 firmware."
     required_minimums:
       active_operational_tables: 1
     seeded_defaults:
@@ -336,6 +377,8 @@ setup_steps:
     rules:
       - "Tenant MUST create at least one operational table besides default test tables."
       - "table_number MUST be unique within the tenant."
+      - "Table creation MUST capture has_qr_device."
+      - "When has_qr_device=true, table-specific firmware MUST be generated."
   - id: "stations"
     required: true
     purpose: "Define fulfillment stations."
@@ -372,10 +415,11 @@ setup_steps:
       - "Role selection MUST be dropdown-based and limited to fixed tenant roles."
   - id: "devices"
     required: false
-    purpose: "Pair ESP32 table QR display devices."
+    purpose: "Review table QR device status and download or regenerate table-specific ESP32 firmware."
     rules:
-      - "ESP32 device pairing MUST NOT be required for tenant operations activation."
-      - "Device pairing MAY be completed after operations activation."
+      - "ESP32 device setup MUST NOT be required for tenant operations activation."
+      - "Device setup MUST use table-specific firmware generation as the primary model."
+      - "Device firmware MAY be downloaded after operations activation by authorized roles."
   - id: "review_and_activate_operations"
     required: true
     purpose: "Validate setup gates and activate tenant operations."
@@ -390,6 +434,7 @@ default_seed_tables:
       type: "system_test"
       operational_use: false
       customer_production_use_allowed: false
+      has_qr_device: false
       purpose:
         - "internal_testing"
         - "review"
@@ -405,6 +450,7 @@ default_seed_tables:
       type: "system_test"
       operational_use: false
       customer_production_use_allowed: false
+      has_qr_device: false
       purpose:
         - "internal_testing"
         - "review"
@@ -421,6 +467,7 @@ default_seed_tables:
     - "Default test tables MUST NOT satisfy the minimum operational table requirement."
     - "Default test tables MUST NOT be deleted by tenant users."
     - "Default test tables MAY be disabled for customer-facing production routes only if testing routes remain available to authorized tenant users."
+    - "Default test tables MUST be created without ESP32 QR display devices by default."
 
 operations_activation_gates:
   required_before_activation:
@@ -436,13 +483,14 @@ operations_activation_gates:
     - "tenant_owner_activation_completed"
   optional_before_activation:
     - "staff_users_invited"
-    - "esp32_devices_paired"
+    - "esp32_table_firmware_downloaded"
     - "opening_hours_configured"
     - "service_charge_configured"
   rules:
     - "Default test tables 000 and 999 MUST NOT count as active operational tables for activation gates."
     - "Default MAIN station MUST count as an active station for activation gates."
     - "Staff users MUST NOT be required for operations activation."
+    - "ESP32 firmware download or device flashing MUST NOT be required for operations activation."
     - "Operations activation MUST fail when there is no active operational table besides default test tables."
     - "Operations activation MUST fail when no active station exists."
     - "Operations activation MUST fail when no active orderable menu item exists."
@@ -472,7 +520,11 @@ forbidden_behavior:
   - "tenant_setup_console_using_platform_api"
   - "tenant_deleting_default_test_table_000"
   - "tenant_deleting_default_test_table_999"
-  - "esp32_device_pairing_required_for_activation"
+  - "esp32_device_firmware_download_required_for_activation"
+  - "pairing_code_primary_device_setup_in_initial_version"
+  - "firmware_download_by_unauthorized_role"
+  - "firmware_regeneration_without_old_secret_revocation"
+  - "table_without_qr_device_accepting_customer_self_ordering_via_table_qr"
   - "tenant_initial_service_mode_delivery"
   - "tenant_initial_service_mode_pickup"
   - "tenant_initial_service_mode_takeaway"
@@ -501,6 +553,7 @@ done_when:
   - "menu_item_model_is_defined"
   - "station_routing_policy_is_defined"
   - "staff_setup_is_defined"
+  - "device_setup_is_defined"
   - "setup_steps_are_defined"
   - "default_seed_tables_are_defined"
   - "operations_activation_gates_are_defined"
