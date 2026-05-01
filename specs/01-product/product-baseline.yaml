@@ -1,0 +1,256 @@
+document:
+  id: "01-product.product-baseline"
+  title: "IoTable Product Baseline"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/01-product/product-baseline.schema.json"
+  status: "draft"
+
+product_identity:
+  name: "IoTable"
+  definition: "IoTable is a multi-tenant cafe and restaurant operations platform."
+  platform_domain: "platform.iotables.net"
+  tenant_domain_pattern: "{tenant}.iotables.net"
+
+multi_tenancy:
+  tenant_resolution: "subdomain"
+  platform_domain: "platform.iotables.net"
+  tenant_domain_pattern: "{tenant}.iotables.net"
+  data_isolation_model: "database_per_tenant"
+  platform_database: "iotable_platform"
+  tenant_database_pattern: "iotable_tenant_{tenantSlug}"
+  rules:
+    - "Platform data MUST be stored in the platform database."
+    - "Tenant operational data MUST be stored in the tenant database assigned to that tenant."
+    - "Tenant operational data MUST NOT be stored in the platform database."
+    - "Platform database records MAY reference tenant registry identifiers."
+    - "Tenant databases MUST NOT store global platform control-plane data."
+
+platform_database_scope:
+  owns:
+    - "tenant_registry"
+    - "tenant_domain_registry"
+    - "tenant_provisioning_jobs"
+    - "tenant_database_registry"
+    - "platform_users"
+    - "platform_roles"
+    - "platform_audit_log"
+    - "global_settings"
+    - "technical_operations_metadata"
+  does_not_own:
+    - "restaurant_menus"
+    - "restaurant_tables"
+    - "restaurant_orders"
+    - "guest_sessions"
+    - "kitchen_station_workflows"
+    - "checkout_records"
+    - "tenant_staff_operational_records"
+
+provisioning_lifecycle:
+  tenant_statuses:
+    - "draft"
+    - "provisioning"
+    - "pending_activation"
+    - "active"
+    - "suspended"
+    - "deactivated"
+  creation_flow:
+    - step: 1
+      id: "create_tenant_record"
+      actor: "platform_admin"
+      result: "A tenant registry record is created in the platform database."
+    - step: 2
+      id: "assign_tenant_slug"
+      actor: "system"
+      result: "A unique tenant slug is assigned."
+    - step: 3
+      id: "assign_tenant_domain"
+      actor: "system"
+      result: "The tenant domain is assigned using the {tenant}.iotables.net pattern."
+    - step: 4
+      id: "create_tenant_database"
+      actor: "system"
+      result: "A dedicated PostgreSQL database is created for the tenant."
+    - step: 5
+      id: "apply_tenant_database_schema"
+      actor: "system"
+      result: "The current tenant database schema is applied."
+    - step: 6
+      id: "seed_tenant_database"
+      actor: "system"
+      result: "Required initial tenant seed data is inserted."
+    - step: 7
+      id: "create_owner_activation_invite"
+      actor: "system"
+      result: "An activation invite is created for the tenant owner."
+    - step: 8
+      id: "set_pending_activation"
+      actor: "system"
+      result: "Tenant status becomes pending_activation."
+    - step: 9
+      id: "complete_owner_activation"
+      actor: "tenant_owner"
+      result: "The tenant owner completes activation."
+    - step: 10
+      id: "set_active"
+      actor: "system"
+      result: "Tenant status becomes active."
+
+stakeholders:
+  - id: "platform_owner"
+    primary_goal: "Manage the entire IoTable installation and observe tenant lifecycle state."
+  - id: "platform_admin_support"
+    primary_goal: "Create tenants and inspect provisioning jobs."
+  - id: "tenant_owner"
+    primary_goal: "Configure the cafe or restaurant and complete initial setup."
+  - id: "tenant_manager"
+    primary_goal: "Manage menu, staff, stations, tables, and tenant settings."
+  - id: "cashier_floor_staff"
+    primary_goal: "Run floor flow, table state, and checkout workflow."
+  - id: "kitchen_station_operator"
+    primary_goal: "Progress order items through station workflows."
+  - id: "customer_diner"
+    primary_goal: "Join through QR, browse menu, place order, and track status."
+  - id: "technical_operator"
+    primary_goal: "Deploy, check health, recover, rotate secrets, and perform maintenance."
+  - id: "table_device"
+    primary_goal: "Display and refresh QR tokens through an ESP32 table device."
+
+application_surface_families:
+  - id: "platform_control_plane"
+    audience:
+      - "platform_owner"
+      - "platform_admin_support"
+    route_family:
+      - "/"
+      - "/tenants"
+      - "/tenants/new"
+      - "/tenants/{id}"
+      - "/jobs"
+      - "/audit"
+      - "/settings"
+  - id: "tenant_setup_console"
+    audience:
+      - "tenant_owner"
+      - "tenant_manager"
+    route_family:
+      - "/tables"
+      - "/settings"
+      - "/console/**"
+  - id: "floor_cash_workspace"
+    audience:
+      - "cashier_floor_staff"
+      - "tenant_manager"
+    route_family:
+      - "/service"
+      - "/table/{tableNumber}"
+      - "/order/{orderId}"
+  - id: "station_board"
+    audience:
+      - "kitchen_station_operator"
+      - "tenant_manager"
+    route_family:
+      - "/stations/{stationCode}"
+      - "/kitchen"
+  - id: "customer_ordering"
+    audience:
+      - "customer_diner"
+    route_family:
+      - "/g/{token}"
+      - "/menu"
+      - "/cart"
+      - "/scan-qr"
+      - "/order-complete/{orderId}"
+  - id: "identity_activation"
+    audience:
+      - "platform_owner"
+      - "platform_admin_support"
+      - "tenant_owner"
+      - "tenant_manager"
+      - "cashier_floor_staff"
+      - "kitchen_station_operator"
+    route_family:
+      - "/login"
+      - "/change-password"
+      - "/activate"
+      - "/login-2fa"
+  - id: "technical_operations"
+    audience:
+      - "technical_operator"
+    route_family:
+      - "/health"
+      - "/health/live"
+      - "/health/ready"
+  - id: "table_device_endpoint"
+    audience:
+      - "table_device"
+    route_family:
+      - "wss://{tenantDomain}/ws/tables/{tableNumber}?deviceKey={deviceKey}"
+
+api_families:
+  - id: "customer_public_api"
+    audience:
+      - "customer_diner"
+    route_family:
+      - "/api/public/catalog"
+      - "/api/public/cart"
+      - "/api/public/session/*"
+      - "/api/public/orders"
+  - id: "staff_internal_api"
+    audience:
+      - "tenant_owner"
+      - "tenant_manager"
+      - "cashier_floor_staff"
+      - "kitchen_station_operator"
+    route_family:
+      - "/api/tables"
+      - "/api/orders"
+      - "/api/kitchen"
+      - "/api/sessions/{id}/close"
+
+open_product_decisions:
+  - id: "PD-001"
+    topic: "Route namespace standard"
+    status: "open"
+  - id: "PD-002"
+    topic: "Platform and tenant authorization model"
+    status: "open"
+  - id: "PD-003"
+    topic: "Payment, POS, and fiscal scope"
+    status: "open"
+  - id: "PD-004"
+    topic: "ESP32 device identity model"
+    status: "open"
+  - id: "PD-005"
+    topic: "Public customer session model"
+    status: "open"
+  - id: "PD-006"
+    topic: "Admin panel application and deployment split"
+    status: "open"
+  - id: "PD-007"
+    topic: "Station and order routing model"
+    status: "open"
+  - id: "PD-008"
+    topic: "Full module inventory"
+    status: "open"
+  - id: "PD-009"
+    topic: "Architecture style decision"
+    status: "open"
+  - id: "PD-010"
+    topic: "Tenant suspension and deactivation behavior"
+    status: "open"
+  - id: "PD-011"
+    topic: "Tenant database schema change orchestration"
+    status: "open"
+
+done_when:
+  - "product_identity_is_defined"
+  - "multi_tenancy_baseline_is_defined"
+  - "provisioning_lifecycle_is_defined"
+  - "stakeholders_are_defined"
+  - "application_surface_families_are_defined"
+  - "api_families_are_defined"
+  - "open_product_decisions_are_recorded"
