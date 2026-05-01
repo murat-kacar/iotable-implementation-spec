@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables and station, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
+  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables and station, menu setup, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
   applies_to:
     - "tenant_setup_console"
     - "tenant_owner_activation"
@@ -167,6 +167,80 @@ default_seed_station:
     - "Tenant users MAY rename MAIN station."
     - "Tenant users MAY disable MAIN station only when at least one other active station exists."
 
+menu_category_model:
+  canonical_identifier: "category_id"
+  create_fields:
+    required:
+      - "name"
+    optional:
+      - "description"
+      - "sort_order"
+  allowed_statuses:
+    - "active"
+    - "disabled"
+  rules:
+    - "category_id MUST be system-generated and used as the canonical technical identifier."
+    - "Category name MUST be provided."
+    - "Disabled categories MUST NOT appear in the customer menu."
+    - "Menu items under a disabled category MUST NOT appear in the customer menu."
+
+menu_item_model:
+  canonical_identifier: "item_id"
+  create_fields:
+    required:
+      - "category_id"
+      - "name"
+      - "image"
+    optional:
+      - "description"
+      - "sort_order"
+  orderable_item_required_fields:
+    - "price"
+    - "station_id"
+    - "image"
+  allowed_statuses:
+    - "active"
+    - "disabled"
+  orderable_flag: true
+  non_orderable_visible_items:
+    allowed: true
+    customer_menu_visibility: true
+    add_to_cart_allowed: false
+    display_badges:
+      - "unavailable"
+      - "coming_soon"
+  price:
+    currency: "TRY"
+    type: "decimal"
+  unsupported_in_initial_version:
+    - "variants"
+    - "modifiers"
+    - "option_groups"
+    - "portion_sizes"
+    - "extra_ingredients"
+    - "stock_tracking"
+  rules:
+    - "item_id MUST be system-generated and used as the canonical technical identifier."
+    - "Menu item name MUST be provided."
+    - "Menu item image MUST be provided."
+    - "Orderable menu item price MUST be provided."
+    - "Orderable menu item station routing MUST be provided."
+    - "Orderable menu item image MUST be provided."
+    - "Disabled menu items MUST NOT appear in the customer menu."
+    - "Active non-orderable menu items MAY appear in the customer menu but MUST NOT be addable to cart."
+    - "Menu item price MUST be stored as TRY decimal in the initial product version."
+    - "Variants, modifiers, option groups, portion sizes, extra ingredients, and stock tracking MUST NOT be supported in the initial product version."
+
+station_routing_policy:
+  routing_level: "menu_item"
+  one_orderable_item_routes_to: "one_station"
+  station_required_when_orderable: true
+  rules:
+    - "Every orderable menu item MUST route to exactly one active station."
+    - "A menu item routed to a disabled station MUST NOT be orderable."
+    - "Station routing MUST be validated before operations activation."
+    - "Station routing MUST be revalidated before order submission."
+
 setup_steps:
   - id: "business_profile"
     required: true
@@ -223,6 +297,8 @@ setup_steps:
     purpose: "Define menu grouping."
     required_minimums:
       active_menu_categories: 1
+    rules:
+      - "Tenant MUST create at least one active menu category before operations activation."
   - id: "menu_items"
     required: true
     purpose: "Define orderable products and station routing."
@@ -230,7 +306,9 @@ setup_steps:
       active_orderable_menu_items: 1
     rules:
       - "Every orderable menu item MUST have a price."
+      - "Every orderable menu item MUST have an image."
       - "Every orderable menu item MUST have station routing."
+      - "Variants and modifiers MUST NOT be configured in the initial product version."
   - id: "staff_users"
     required: false
     purpose: "Invite tenant staff users and assign fixed roles."
@@ -294,6 +372,8 @@ operations_activation_gates:
     - "at_least_one_active_station_created"
     - "at_least_one_active_menu_category_created"
     - "at_least_one_active_orderable_menu_item_created"
+    - "every_orderable_menu_item_has_price"
+    - "every_orderable_menu_item_has_image"
     - "every_orderable_menu_item_has_station_routing"
     - "tenant_owner_activation_completed"
   optional_before_activation:
@@ -307,6 +387,8 @@ operations_activation_gates:
     - "Operations activation MUST fail when there is no active operational table besides default test tables."
     - "Operations activation MUST fail when no active station exists."
     - "Operations activation MUST fail when no active orderable menu item exists."
+    - "Operations activation MUST fail when any orderable menu item lacks price."
+    - "Operations activation MUST fail when any orderable menu item lacks image."
     - "Operations activation MUST fail when any orderable menu item lacks station routing."
 
 post_activation_behavior:
@@ -325,6 +407,8 @@ forbidden_behavior:
   - "tenant_operations_activation_counting_table_999_as_operational_table"
   - "tenant_operations_activation_without_station"
   - "tenant_operations_activation_without_orderable_menu_item"
+  - "tenant_operations_activation_with_orderable_menu_item_without_price"
+  - "tenant_operations_activation_with_orderable_menu_item_without_image"
   - "tenant_operations_activation_with_unrouted_orderable_menu_item"
   - "tenant_setup_console_using_platform_api"
   - "tenant_deleting_default_test_table_000"
@@ -337,6 +421,9 @@ forbidden_behavior:
   - "tenant_disabling_MAIN_station_without_another_active_station"
   - "duplicate_table_number_within_tenant"
   - "duplicate_station_code_within_tenant"
+  - "menu_item_variants_in_initial_version"
+  - "menu_item_modifiers_in_initial_version"
+  - "menu_item_stock_tracking_in_initial_version"
 
 open_decisions: []
 
@@ -348,6 +435,9 @@ done_when:
   - "table_model_is_defined"
   - "station_model_is_defined"
   - "default_seed_station_is_defined"
+  - "menu_category_model_is_defined"
+  - "menu_item_model_is_defined"
+  - "station_routing_policy_is_defined"
   - "setup_steps_are_defined"
   - "default_seed_tables_are_defined"
   - "operations_activation_gates_are_defined"
