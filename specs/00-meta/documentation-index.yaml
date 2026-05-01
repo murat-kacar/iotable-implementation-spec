@@ -142,6 +142,10 @@ specification_sections:
         path: "specs/06-application-surfaces/platform-audit-catalog.yaml"
         schema_file: "schemas/06-application-surfaces/platform-audit-catalog.schema.json"
         status: "draft"
+      - id: "06-application-surfaces.tenant-setup-console"
+        path: "specs/06-application-surfaces/tenant-setup-console.yaml"
+        schema_file: "schemas/06-application-surfaces/tenant-setup-console.schema.json"
+        status: "draft"
 
   - id: "07-api-contracts"
     path: "specs/07-api-contracts"
