@@ -112,6 +112,9 @@ tenant_permissions:
     - "tenant.tables.create"
     - "tenant.tables.update"
     - "tenant.tables.disable"
+  firmware:
+    - "tenant.firmware.generate"
+    - "tenant.firmware.download"
   stations:
     - "tenant.stations.view"
     - "tenant.stations.create"
@@ -160,6 +163,7 @@ role_permission_matrix:
       - "setup"
       - "staff"
       - "tables"
+      - "firmware"
       - "stations"
       - "menu"
       - "service_floor"
@@ -274,6 +278,15 @@ operation_authorization_rules:
     rules:
       - "Accountant access MUST be read-only."
       - "Accountant access MUST NOT mutate bills, payments, menu, stations, tables, staff, or orders."
+  - id: "PAR-007"
+    operation: "table-specific firmware generation and download"
+    required_permissions:
+      - "tenant.firmware.generate"
+      - "tenant.firmware.download"
+    rules:
+      - "Firmware generation and download MUST be limited to tenant_owner and tenant_admin in the initial product version."
+      - "tenant_manager MUST NOT receive firmware generation or firmware download permissions in the initial product version."
+      - "Firmware artifacts MUST be treated as tenant secrets."
 
 forbidden_behavior:
   - "custom_roles_in_first_version"
@@ -284,6 +297,7 @@ forbidden_behavior:
   - "customer_diner_using_staff_permission_model"
   - "kitchen_operator_role"
   - "accountant_mutation_permissions"
+  - "firmware_permission_granted_to_tenant_manager_initial_version"
 
 open_decisions: []
 
@@ -294,6 +308,7 @@ done_when:
   - "permission_namespaces_are_defined"
   - "platform_permissions_are_defined"
   - "tenant_permissions_are_defined"
+  - "firmware_permissions_are_defined"
   - "role_permission_matrix_is_defined"
   - "operation_authorization_rules_are_defined"
   - "forbidden_permission_behavior_is_defined"
