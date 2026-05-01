@@ -147,7 +147,11 @@ specification_sections:
     schema_path: "schemas/08-data-contracts"
     purpose: "Defines database schemas, entity contracts, database change scripts, indexes, constraints, and data ownership."
     required: true
-    documents: []
+    documents:
+      - id: "08-data-contracts.platform-data"
+        path: "specs/08-data-contracts/platform-data.yaml"
+        schema_file: "schemas/08-data-contracts/platform-data.schema.json"
+        status: "draft"
 
   - id: "09-realtime-device-contracts"
     path: "specs/09-realtime-device-contracts"
@@ -221,7 +225,4 @@ open_items:
     status: "open"
   - id: "IDX-003"
     topic: "Define concrete backend solution and project folder structure."
-    status: "open"
-  - id: "IDX-004"
-    topic: "Define platform data contracts."
     status: "open"
