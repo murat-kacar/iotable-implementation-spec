@@ -75,12 +75,16 @@ specification_sections:
     required: true
     documents: []
 
-  - id: "03-domain-model"
-    path: "specs/03-domain-model"
-    schema_path: "schemas/03-domain-model"
-    purpose: "Defines business capability boundaries, aggregates, domain events, commands, queries, and ownership rules."
+  - id: "03-domain"
+    path: "specs/03-domain"
+    schema_path: "schemas/03-domain"
+    purpose: "Defines business capability boundaries, aggregates, domain events, commands, queries, ownership rules, and operation workflows."
     required: true
-    documents: []
+    documents:
+      - id: "03-domain.station-order-routing"
+        path: "specs/03-domain/station-order-routing.yaml"
+        schema_file: "schemas/03-domain/station-order-routing.schema.json"
+        status: "draft"
 
   - id: "04-tenancy"
     path: "specs/04-tenancy"
@@ -188,5 +192,5 @@ open_items:
     topic: "Define architecture style decision."
     status: "open"
   - id: "IDX-003"
-    topic: "Define route namespace standard."
+    topic: "Resolve customer session and QR membership model."
     status: "open"
