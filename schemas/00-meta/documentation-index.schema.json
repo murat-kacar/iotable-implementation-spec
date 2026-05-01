@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/00-meta/documentation-index.schema.json",
+  "title": "IoTable Documentation Index Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "repository",
+    "required_session_bootstrap",
+    "specification_sections",
+    "folder_creation_policy",
+    "schema_policy",
+    "open_items"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "repository": { "$ref": "#/$defs/repository" },
+    "required_session_bootstrap": { "$ref": "#/$defs/session_bootstrap" },
+    "specification_sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/specification_section" }
+    },
+    "folder_creation_policy": { "$ref": "#/$defs/policy" },
+    "schema_policy": { "$ref": "#/$defs/policy_with_location" },
+    "open_items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/open_item" }
+    }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "00-meta.documentation-index" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/00-meta/documentation-index.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_branch", "source_root", "schema_root", "tools_root"],
+      "properties": {
+        "canonical_branch": { "type": "string", "const": "master" },
+        "source_root": { "type": "string", "const": "specs" },
+        "schema_root": { "type": "string", "const": "schemas" },
+        "tools_root": { "type": "string", "const": "tools" }
+      }
+    },
+    "session_bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "documents"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "documents": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/bootstrap_document" }
+        }
+      }
+    },
+    "bootstrap_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "purpose"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^specs/.+\\.yaml$" },
+        "purpose": { "type": "string", "minLength": 1 }
+      }
+    },
+    "specification_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "schema_path", "purpose", "required", "documents"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9]{2}-[a-z0-9-]+$" },
+        "path": { "type": "string", "pattern": "^specs/[0-9]{2}-[a-z0-9-]+$" },
+        "schema_path": { "type": "string", "pattern": "^schemas/[0-9]{2}-[a-z0-9-]+$" },
+        "purpose": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean" },
+        "documents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/indexed_document" }
+        }
+      }
+    },
+    "indexed_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "pattern": "^specs/.+\\.yaml$" },
+        "schema_file": { "type": "string", "pattern": "^schemas/.+\\.schema\\.json$" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "policy_with_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "schema_location_rule"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "schema_location_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "open_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^IDX-[0-9]{3}$" },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    }
+  }
+}
