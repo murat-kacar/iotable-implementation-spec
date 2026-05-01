@@ -290,6 +290,21 @@ customer_ordering_session_baseline:
     - "Stations MUST acknowledge accepted work."
     - "Stations MUST mark produced items as ready."
 
+device_baseline:
+  canonical_specification: "specs/09-realtime-device-contracts/esp32-device-identity.yaml"
+  table_device_type: "esp32_tft_qr_display"
+  device_scope: "tenant_table"
+  device_represents: "one_physical_table_qr_display"
+  qr_generation: "server_only"
+  device_authentication: "device_secret"
+  device_pairing: "one_time_pairing_code"
+  rules:
+    - "ESP32 devices MUST NOT generate QR tokens."
+    - "ESP32 devices MUST display only server-generated QR payloads."
+    - "One ESP32 QR display device MUST be assigned to exactly one tenant table."
+    - "A table MAY have at most one active QR display device."
+    - "Server MUST remain source of truth for QR state."
+
 stakeholders:
   - id: "platform_owner"
     primary_goal: "Manage the IoTable platform control plane and observe tenant lifecycle state."
@@ -405,11 +420,11 @@ product_decision_references:
   - id: "PDR-006"
     topic: "Permission catalog and role-permission matrix"
     canonical_document: "specs/05-identity-access/permission-catalog.yaml"
+  - id: "PDR-007"
+    topic: "ESP32 device identity"
+    canonical_document: "specs/09-realtime-device-contracts/esp32-device-identity.yaml"
 
-open_product_decisions:
-  - id: "PD-001"
-    topic: "ESP32 device identity model"
-    status: "open"
+open_product_decisions: []
 
 done_when:
   - "product_identity_is_defined"
@@ -423,8 +438,8 @@ done_when:
   - "authentication_authorization_baseline_matches_permission_catalog"
   - "payment_checkout_scope_is_defined"
   - "customer_ordering_session_baseline_matches_customer_access_security"
+  - "device_baseline_matches_esp32_device_identity"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
   - "product_decision_references_are_defined"
-  - "remaining_open_product_decisions_are_recorded"
