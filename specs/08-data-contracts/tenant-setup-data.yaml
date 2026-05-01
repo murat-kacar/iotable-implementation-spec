@@ -1,0 +1,416 @@
+document:
+  id: "08-data-contracts.tenant-setup-data"
+  title: "IoTable Tenant Setup Data Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/08-data-contracts/tenant-setup-data.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant setup database ownership, tenant database isolation, setup entities, table/station/menu/device/staff invite data contracts, and forbidden cross-tenant data behavior."
+  applies_to:
+    - "tenant_database"
+    - "tenant_setup_console"
+    - "tenant_initial_configuration"
+    - "tenant_operations_activation"
+    - "tenant_data_isolation"
+    - "table_device_firmware_generation"
+
+isolation_principle:
+  model: "database_per_tenant"
+  rule: "All tenant operational and setup data MUST be stored only in the assigned tenant database."
+  platform_database_name: "iotable_platform"
+  tenant_database_pattern: "iotable_tenant_{tenantSlug}"
+  tenant_id_filter_based_isolation_allowed: false
+  shared_tenant_database_allowed: false
+  cross_tenant_query_allowed: false
+  cross_tenant_transaction_allowed: false
+  rules:
+    - "Each tenant MUST have a dedicated PostgreSQL database."
+    - "Tenant isolation MUST be enforced by database boundary, not by tenant_id filtering inside shared tenant tables."
+    - "Tenant operational data MUST NOT be stored in the platform database."
+    - "A tenant runtime context MUST resolve exactly one tenant database connection."
+    - "A request resolved for one tenant MUST NOT query or mutate another tenant database."
+    - "Cross-tenant transactions are forbidden."
+    - "Cross-tenant reporting MUST NOT be implemented by querying tenant operational tables from the platform runtime in the initial product version."
+
+platform_database_boundary:
+  owns:
+    - "tenant_registry"
+    - "tenant_domain_registry"
+    - "tenant_database_registry"
+    - "tenant_provisioning_jobs"
+    - "tenant_schema_change_jobs"
+    - "platform_users"
+    - "platform_roles"
+    - "platform_audit_log"
+    - "global_settings"
+  does_not_own:
+    - "tenant_profile"
+    - "tenant_setup_state"
+    - "tables"
+    - "stations"
+    - "menu_categories"
+    - "menu_items"
+    - "table_devices"
+    - "staff_invites"
+    - "orders"
+    - "carts"
+    - "bill_sessions"
+    - "customer_sessions"
+    - "device_secret_hashes"
+    - "firmware_generation_state"
+  rules:
+    - "Platform database MAY store tenant lifecycle metadata and tenant database registry data."
+    - "Platform database MUST NOT store tenant setup or tenant operational entities."
+    - "Platform database MUST NOT store ESP32 device secrets or firmware configuration."
+
+tenant_database_boundary:
+  owns:
+    - "tenant_profile"
+    - "tenant_setup_state"
+    - "tables"
+    - "stations"
+    - "menu_categories"
+    - "menu_items"
+    - "table_devices"
+    - "staff_invites"
+  future_operational_owners:
+    - "customer_sessions"
+    - "carts"
+    - "orders"
+    - "station_tickets"
+    - "bill_sessions"
+    - "manual_payments"
+  tenant_id_column_policy:
+    tenant_id_column_required: false
+    tenant_id_column_for_isolation: "forbidden"
+    rationale: "Tenant database identity is already determined by the resolved database connection."
+  rules:
+    - "Tenant setup tables MUST be created inside the tenant database."
+    - "Tenant setup tables SHOULD NOT include tenant_id for isolation."
+    - "Tenant setup tables MUST rely on tenant database boundary for tenant isolation."
+    - "Tenant database schema version MUST be tracked per tenant database."
+
+common_columns:
+  required_for_mutable_tables:
+    - "id"
+    - "created_at_utc"
+    - "updated_at_utc"
+  optional_for_auditable_tables:
+    - "created_by_user_id"
+    - "updated_by_user_id"
+  id_policy:
+    type: "uuid"
+    generated_by: "application_or_database"
+  time_policy:
+    timezone: "utc"
+    rules:
+      - "Mutable tenant setup tables MUST include created_at_utc and updated_at_utc."
+      - "Timestamp fields MUST be stored in UTC."
+
+tables:
+  tenant_profile:
+    ownership: "tenant_database"
+    purpose: "Stores tenant business profile and operating defaults."
+    primary_key: "id"
+    cardinality: "one_row_per_tenant_database"
+    columns:
+      id: "uuid"
+      business_display_name: "text_required"
+      business_type: "enum_required"
+      default_currency: "char3_required_default_TRY"
+      default_timezone: "text_required_default_Europe_Istanbul"
+      business_legal_name: "text_nullable"
+      phone: "text_nullable"
+      address: "text_nullable"
+      logo_asset_id: "uuid_nullable"
+      default_service_mode: "enum_required_default_dine_in"
+      default_tax_display_mode: "enum_required_default_tax_included"
+      opening_hours_json: "jsonb_nullable"
+      service_charge_json: "jsonb_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    constraints:
+      - "single_row_guard"
+      - "business_type_allowed_values"
+      - "default_service_mode_dine_in_only_initial_version"
+      - "default_tax_display_mode_allowed_values"
+
+  tenant_setup_state:
+    ownership: "tenant_database"
+    purpose: "Stores setup wizard progress and operations activation state."
+    primary_key: "id"
+    cardinality: "one_row_per_tenant_database"
+    columns:
+      id: "uuid"
+      setup_status: "enum_required"
+      completed_steps_json: "jsonb_required_default_empty_array"
+      activation_status: "enum_required"
+      activated_at_utc: "timestamptz_nullable"
+      activated_by_user_id: "uuid_nullable"
+      last_completed_step: "text_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_setup_statuses:
+      - "not_started"
+      - "in_progress"
+      - "completed"
+    allowed_activation_statuses:
+      - "not_active"
+      - "active"
+    constraints:
+      - "single_row_guard"
+
+  tables:
+    ownership: "tenant_database"
+    purpose: "Stores operational and system test tables."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      table_number: "text_required"
+      table_code: "text_required"
+      display_name: "text_nullable"
+      area_or_section: "text_nullable"
+      seat_capacity: "integer_nullable"
+      table_type: "enum_required"
+      status: "enum_required"
+      has_qr_device: "boolean_required"
+      customer_self_ordering_enabled: "boolean_required"
+      staff_pda_ordering_enabled: "boolean_required_default_true"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_table_types:
+      - "operational"
+      - "system_test"
+    allowed_statuses:
+      - "active"
+      - "disabled"
+    unique_constraints:
+      - "ux_tables_table_number"
+      - "ux_tables_table_code"
+    seed_rows:
+      - table_number: "000"
+        table_code: "000"
+        table_type: "system_test"
+        has_qr_device: false
+        customer_self_ordering_enabled: false
+        staff_pda_ordering_enabled: true
+      - table_number: "999"
+        table_code: "999"
+        table_type: "system_test"
+        has_qr_device: false
+        customer_self_ordering_enabled: false
+        staff_pda_ordering_enabled: true
+    constraints:
+      - "system_test_tables_do_not_count_as_operational_activation_gate"
+      - "table_without_qr_device_customer_self_ordering_false"
+
+  stations:
+    ownership: "tenant_database"
+    purpose: "Stores fulfillment stations."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      station_code: "text_required"
+      display_name: "text_required"
+      station_type: "enum_required"
+      status: "enum_required"
+      sort_order: "integer_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_station_types:
+      - "kitchen"
+      - "bar"
+      - "coffee"
+      - "dessert"
+      - "service"
+      - "other"
+    allowed_statuses:
+      - "active"
+      - "disabled"
+    unique_constraints:
+      - "ux_stations_station_code"
+    seed_rows:
+      - station_code: "MAIN"
+        display_name: "Main Station"
+        station_type: "kitchen"
+        status: "active"
+    constraints:
+      - "MAIN_station_cannot_be_disabled_without_another_active_station"
+
+  menu_categories:
+    ownership: "tenant_database"
+    purpose: "Stores menu categories."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      name: "text_required"
+      description: "text_nullable"
+      sort_order: "integer_nullable"
+      status: "enum_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "active"
+      - "disabled"
+
+  menu_items:
+    ownership: "tenant_database"
+    purpose: "Stores menu items, price, image, orderability, and station routing."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      category_id: "uuid_required_fk_menu_categories"
+      name: "text_required"
+      description: "text_nullable"
+      image_asset_id: "uuid_required"
+      price_amount: "numeric_required_when_orderable"
+      price_currency: "char3_required_default_TRY"
+      station_id: "uuid_required_when_orderable_fk_stations"
+      status: "enum_required"
+      orderable: "boolean_required"
+      non_orderable_badge: "enum_nullable"
+      sort_order: "integer_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "active"
+      - "disabled"
+    allowed_non_orderable_badges:
+      - "unavailable"
+      - "coming_soon"
+    constraints:
+      - "orderable_item_requires_price"
+      - "orderable_item_requires_image"
+      - "orderable_item_requires_active_station"
+      - "disabled_items_hidden_from_customer_menu"
+      - "items_under_disabled_category_hidden_from_customer_menu"
+
+  table_devices:
+    ownership: "tenant_database"
+    purpose: "Stores ESP32 table QR display device identity, secret hash, firmware generation state, and table assignment."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      table_id: "uuid_required_fk_tables"
+      device_id: "uuid_required_unique"
+      device_secret_hash: "text_required"
+      ws_identity: "text_required_unique"
+      firmware_code_version: "text_required"
+      firmware_config_version: "integer_required"
+      firmware_generated_at_utc: "timestamptz_required"
+      firmware_downloaded_at_utc: "timestamptz_nullable"
+      firmware_downloaded_by_user_id: "uuid_nullable"
+      status: "enum_required"
+      last_seen_at_utc: "timestamptz_nullable"
+      display_status: "text_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "firmware_generated"
+      - "active"
+      - "offline"
+      - "revoked"
+      - "replaced"
+    unique_constraints:
+      - "ux_table_devices_device_id"
+      - "ux_table_devices_ws_identity"
+      - "ux_table_devices_one_active_device_per_table"
+    constraints:
+      - "device_secret_hash_required"
+      - "plaintext_device_secret_forbidden"
+      - "one_active_qr_display_device_per_table"
+      - "regeneration_revokes_old_secret"
+
+  staff_invites:
+    ownership: "tenant_database"
+    purpose: "Stores optional tenant staff invitations created during setup or later tenant administration."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      display_name: "text_required"
+      email: "citext_required"
+      phone: "text_nullable"
+      role: "enum_required"
+      station_id: "uuid_nullable_fk_stations"
+      invite_token_hash: "text_required"
+      status: "enum_required"
+      expires_at_utc: "timestamptz_required"
+      accepted_at_utc: "timestamptz_nullable"
+      created_by_user_id: "uuid_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_roles:
+      - "tenant_admin"
+      - "tenant_manager"
+      - "cashier"
+      - "floor_staff"
+      - "station_operator"
+      - "accountant"
+    allowed_statuses:
+      - "pending"
+      - "accepted"
+      - "expired"
+      - "revoked"
+    constraints:
+      - "tenant_owner_role_not_invitable_from_staff_setup"
+      - "platform_roles_not_invitable_from_tenant_setup"
+      - "invite_token_hash_required"
+      - "plaintext_invite_token_forbidden"
+
+activation_gate_queries:
+  rules:
+    - "Activation gate queries MUST run only against the resolved tenant database."
+    - "Activation gate queries MUST NOT query the platform database for tenant operational state."
+    - "Activation gate queries MUST verify at least one active operational table."
+    - "Activation gate queries MUST exclude system_test tables from operational table count."
+    - "Activation gate queries MUST verify at least one active station."
+    - "Activation gate queries MUST verify at least one active menu category."
+    - "Activation gate queries MUST verify at least one active orderable menu item."
+    - "Activation gate queries MUST verify every active orderable menu item has price, image, and active station routing."
+
+firmware_data_security:
+  rules:
+    - "Firmware artifacts MUST NOT be stored as plaintext downloadable blobs without access control."
+    - "Device secret plaintext MUST be available only during firmware generation response."
+    - "Device secret plaintext MUST NOT be persisted."
+    - "Wi-Fi credentials MUST NOT be logged in plaintext."
+    - "Firmware download events MUST be audited in tenant audit or setup audit records."
+
+forbidden_behavior:
+  - "shared_tenant_database_with_tenant_id_filter_isolation"
+  - "tenant_operational_data_in_platform_database"
+  - "cross_tenant_query"
+  - "cross_tenant_transaction"
+  - "platform_database_storing_menu_items"
+  - "platform_database_storing_orders"
+  - "platform_database_storing_table_devices"
+  - "platform_database_storing_device_secret_hashes"
+  - "tenant_setup_tables_using_tenant_id_as_primary_isolation"
+  - "activation_gate_counting_system_test_tables"
+  - "table_without_qr_device_customer_self_ordering_enabled"
+  - "plaintext_device_secret_persistence"
+  - "plaintext_invite_token_persistence"
+
+open_decisions: []
+
+done_when:
+  - "tenant_database_isolation_principle_is_defined"
+  - "platform_database_boundary_is_defined"
+  - "tenant_database_boundary_is_defined"
+  - "common_columns_are_defined"
+  - "tenant_profile_table_is_defined"
+  - "tenant_setup_state_table_is_defined"
+  - "tables_table_is_defined"
+  - "stations_table_is_defined"
+  - "menu_categories_table_is_defined"
+  - "menu_items_table_is_defined"
+  - "table_devices_table_is_defined"
+  - "staff_invites_table_is_defined"
+  - "activation_gate_queries_are_defined"
+  - "firmware_data_security_is_defined"
+  - "forbidden_data_behavior_is_defined"
