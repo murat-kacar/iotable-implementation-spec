@@ -122,6 +122,10 @@ specification_sections:
         path: "specs/06-application-surfaces/platform-provisioning-retry.yaml"
         schema_file: "schemas/06-application-surfaces/platform-provisioning-retry.schema.json"
         status: "draft"
+      - id: "06-application-surfaces.platform-settings-catalog"
+        path: "specs/06-application-surfaces/platform-settings-catalog.yaml"
+        schema_file: "schemas/06-application-surfaces/platform-settings-catalog.schema.json"
+        status: "draft"
 
   - id: "07-api-contracts"
     path: "specs/07-api-contracts"
@@ -209,7 +213,4 @@ open_items:
     status: "open"
   - id: "IDX-003"
     topic: "Define concrete backend solution and project folder structure."
-    status: "open"
-  - id: "IDX-004"
-    topic: "Define platform settings catalog."
     status: "open"
