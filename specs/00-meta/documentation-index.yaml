@@ -85,6 +85,10 @@ specification_sections:
         path: "specs/03-domain/station-order-routing.yaml"
         schema_file: "schemas/03-domain/station-order-routing.schema.json"
         status: "draft"
+      - id: "03-domain.module-inventory"
+        path: "specs/03-domain/module-inventory.yaml"
+        schema_file: "schemas/03-domain/module-inventory.schema.json"
+        status: "draft"
 
   - id: "04-tenancy"
     path: "specs/04-tenancy"
@@ -186,11 +190,11 @@ schema_policy:
 
 open_items:
   - id: "IDX-001"
-    topic: "Define business capability inventory."
-    status: "open"
-  - id: "IDX-002"
     topic: "Define architecture style decision."
     status: "open"
-  - id: "IDX-003"
+  - id: "IDX-002"
     topic: "Resolve customer session and QR membership model."
+    status: "open"
+  - id: "IDX-003"
+    topic: "Define admin panel application and deployment split."
     status: "open"
