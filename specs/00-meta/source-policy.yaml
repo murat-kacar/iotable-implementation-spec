@@ -1,0 +1,135 @@
+document:
+  id: "00-meta.source-policy"
+  title: "IoTable Source Policy"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/00-meta/source-policy.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define how sources are classified, evaluated, and allowed to influence the IoTable Implementation Specification."
+  applies_to:
+    - "all_specification_documents"
+    - "all_research_decisions"
+    - "all_llm_generated_specification_changes"
+
+source_authority_levels:
+  - id: "project_owner_binding_decision"
+    authority: "binding"
+    can_define_product_behavior: true
+    can_define_technical_constraint: true
+    approval_required: false
+    description: "A direct decision from the project owner."
+
+  - id: "provided_product_source"
+    authority: "high"
+    can_define_product_behavior: true
+    can_define_technical_constraint: false
+    approval_required: true
+    description: "A project-owner-provided product note, workflow, role definition, surface list, or domain rule."
+
+  - id: "official_technical_documentation"
+    authority: "high"
+    can_define_product_behavior: false
+    can_define_technical_constraint: true
+    approval_required: false
+    description: "Official documentation from the vendor, standards body, framework team, or project maintainers."
+
+  - id: "formal_standard_or_rfc"
+    authority: "high"
+    can_define_product_behavior: false
+    can_define_technical_constraint: true
+    approval_required: false
+    description: "A formal specification, standard, RFC, or published protocol definition."
+
+  - id: "framework_author_guidance"
+    authority: "medium_high"
+    can_define_product_behavior: false
+    can_define_technical_constraint: true
+    approval_required: false
+    description: "Guidance from maintainers or authors of the framework used by IoTable."
+
+  - id: "mature_open_source_project"
+    authority: "medium"
+    can_define_product_behavior: false
+    can_define_technical_constraint: false
+    approval_required: true
+    description: "A mature open-source project used as pattern evidence, not as a binding source."
+
+  - id: "major_engineering_organization_practice"
+    authority: "medium"
+    can_define_product_behavior: false
+    can_define_technical_constraint: false
+    approval_required: true
+    description: "Engineering practice from major organizations used as comparison evidence."
+
+  - id: "reputable_engineering_article"
+    authority: "low"
+    can_define_product_behavior: false
+    can_define_technical_constraint: false
+    approval_required: true
+    description: "A reputable article used only to support research context or tradeoff analysis."
+
+  - id: "llm_memory"
+    authority: "none"
+    can_define_product_behavior: false
+    can_define_technical_constraint: false
+    approval_required: true
+    description: "LLM memory can propose search directions only. It cannot define specification content."
+
+source_usage_rules:
+  - id: "SUR-001"
+    rule: "A source is evidence, not inspiration."
+  - id: "SUR-002"
+    rule: "Product behavior MUST come from a project owner decision or an owner-accepted product source."
+  - id: "SUR-003"
+    rule: "Technical facts that are version-sensitive MUST be checked against current authoritative sources before entering the specification."
+  - id: "SUR-004"
+    rule: "Reference products MAY influence comparison, but MUST NOT be copied as requirements."
+  - id: "SUR-005"
+    rule: "A source conflict MUST be recorded as a decision item before the specification is frozen."
+  - id: "SUR-006"
+    rule: "No requirement may depend on external context that is not represented in the repository."
+
+source_record_format:
+  required_fields:
+    - "source_id"
+    - "source_type"
+    - "authority_level"
+    - "locator"
+    - "retrieved_at"
+    - "used_for"
+    - "extracted_facts"
+    - "limitations"
+    - "spec_impact"
+  optional_fields:
+    - "version"
+    - "publisher"
+    - "maintainer"
+    - "related_decision_id"
+
+conflict_resolution:
+  rule: "Source conflicts are not silently resolved by the LLM."
+  required_process:
+    - "identify_conflict"
+    - "classify_conflict"
+    - "list_affected_specification_area"
+    - "present_resolution_options"
+    - "record_owner_decision_when_product_behavior_is_affected"
+
+prohibited_source_handling:
+  - "treating_llm_output_as_source"
+  - "turning_examples_into_requirements_without_owner_acceptance"
+  - "using_reference_product_behavior_as_binding_behavior"
+  - "combining_conflicting_sources_without_decision_record"
+  - "omitting_source_limitations"
+  - "using_unchecked_version_sensitive_memory"
+
+done_when:
+  - "all_source_authority_levels_are_defined"
+  - "source_usage_rules_are_machine_readable"
+  - "conflict_resolution_rules_are_defined"
+  - "prohibited_source_handling_is_defined"
