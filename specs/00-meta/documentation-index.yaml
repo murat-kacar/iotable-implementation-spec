@@ -116,6 +116,10 @@ specification_sections:
         path: "specs/04-tenancy/tenant-resolution.yaml"
         schema_file: "schemas/04-tenancy/tenant-resolution.schema.json"
         status: "draft"
+      - id: "04-tenancy.tenant-lifecycle-provisioning"
+        path: "specs/04-tenancy/tenant-lifecycle-provisioning.yaml"
+        schema_file: "schemas/04-tenancy/tenant-lifecycle-provisioning.schema.json"
+        status: "draft"
 
   - id: "05-identity-access"
     path: "specs/05-identity-access"
