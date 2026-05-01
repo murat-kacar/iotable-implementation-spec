@@ -170,7 +170,11 @@ specification_sections:
     schema_path: "schemas/09-realtime-device-contracts"
     purpose: "Defines realtime messaging, WebSocket contracts, ESP32 table device behavior, and device identity."
     required: true
-    documents: []
+    documents:
+      - id: "09-realtime-device-contracts.esp32-device-identity"
+        path: "specs/09-realtime-device-contracts/esp32-device-identity.yaml"
+        schema_file: "schemas/09-realtime-device-contracts/esp32-device-identity.schema.json"
+        status: "draft"
 
   - id: "10-implementation-plan"
     path: "specs/10-implementation-plan"
@@ -236,8 +240,4 @@ schema_policy:
   rule: "Every YAML specification document MUST have a matching JSON Schema file."
   schema_location_rule: "Schema files MUST mirror specification section paths under the schemas root."
 
-open_items:
-  - id: "IDX-001"
-    topic: "Define ESP32 device identity model."
-    status: "open"
-    source_document: "specs/01-product/product-baseline.yaml"
+open_items: []
