@@ -187,11 +187,15 @@ authentication_authorization:
     token_validation: "OpenIddict validation"
     authorization_runtime: "ASP.NET Core authorization policies"
   authorization_model:
-    model: "hybrid_rbac_with_permission_enforcement"
+    model: "fixed_roles_with_permission_enforcement"
+    custom_roles: false
+    custom_permission_editing: false
     role_usage: "roles_are_permission_bundles"
+    ui_assignment_unit: "role"
     enforcement_unit: "permission"
     backend_rule: "Backend authorization MUST check permissions, not role names."
     namespace_rule: "Platform permissions and tenant permissions MUST be separate namespaces."
+    canonical_specification: "specs/05-identity-access/permission-catalog.yaml"
   platform_roles:
     - "platform_owner"
   tenant_roles:
@@ -200,13 +204,15 @@ authentication_authorization:
     - "tenant_manager"
     - "cashier"
     - "floor_staff"
-    - "kitchen_operator"
     - "station_operator"
     - "accountant"
   rules:
     - "Roles MUST be assigned to users for operational manageability."
     - "Permissions MUST be used as the backend enforcement unit."
     - "Owner roles MUST receive all permissions inside their scope."
+    - "Tenant role permission bundles MUST be fixed in the first product version."
+    - "Tenant users MUST NOT create custom roles."
+    - "Tenant users MUST NOT edit permission bundles."
     - "The platform_owner role MUST NOT grant tenant database operational permissions unless explicitly mapped through tenant-scoped permissions."
     - "Tenant roles MUST NOT grant platform control-plane permissions."
     - "Authentication tokens MUST carry enough claims to resolve user identity, tenant context, and permission scope."
@@ -293,8 +299,8 @@ stakeholders:
     primary_goal: "Manage menu, staff, stations, tables, and tenant settings."
   - id: "cashier_floor_staff"
     primary_goal: "Run floor flow, table state, and checkout workflow."
-  - id: "kitchen_station_operator"
-    primary_goal: "Progress order items through station workflows."
+  - id: "station_operator"
+    primary_goal: "Progress assigned station work through station workflows."
   - id: "customer_diner"
     primary_goal: "Join through QR, browse menu, place order, and track status."
   - id: "technical_operator"
@@ -324,7 +330,7 @@ application_surface_families:
       - "https://{tenant}.iotables.net/app/orders/{orderId}/**"
   - id: "station_board"
     audience:
-      - "kitchen_station_operator"
+      - "station_operator"
       - "tenant_manager"
     route_family:
       - "https://{tenant}.iotables.net/app/stations/**"
@@ -340,7 +346,7 @@ application_surface_families:
       - "tenant_owner"
       - "tenant_manager"
       - "cashier_floor_staff"
-      - "kitchen_station_operator"
+      - "station_operator"
     route_family:
       - "https://platform.iotables.net/login"
       - "https://platform.iotables.net/change-password"
@@ -376,7 +382,7 @@ api_families:
       - "tenant_owner"
       - "tenant_manager"
       - "cashier_floor_staff"
-      - "kitchen_station_operator"
+      - "station_operator"
     route_family:
       - "https://{tenant}.iotables.net/api/internal/**"
 
@@ -396,13 +402,13 @@ product_decision_references:
   - id: "PDR-005"
     topic: "Platform data contracts"
     canonical_document: "specs/08-data-contracts/platform-data.yaml"
+  - id: "PDR-006"
+    topic: "Permission catalog and role-permission matrix"
+    canonical_document: "specs/05-identity-access/permission-catalog.yaml"
 
 open_product_decisions:
   - id: "PD-001"
     topic: "ESP32 device identity model"
-    status: "open"
-  - id: "PD-002"
-    topic: "Permission catalog and role-permission matrix"
     status: "open"
 
 done_when:
@@ -414,7 +420,7 @@ done_when:
   - "tenant_status_behavior_is_defined"
   - "tenant_database_schema_change_orchestration_is_defined"
   - "route_namespace_standard_is_defined"
-  - "authentication_authorization_baseline_is_defined"
+  - "authentication_authorization_baseline_matches_permission_catalog"
   - "payment_checkout_scope_is_defined"
   - "customer_ordering_session_baseline_matches_customer_access_security"
   - "stakeholders_are_defined"
