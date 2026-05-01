@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/03-domain/station-order-routing.schema.json",
+  "title": "IoTable Station and Order Routing Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "core_model",
+    "routing_rules",
+    "status_model",
+    "station_workflow",
+    "customer_visibility",
+    "staff_visibility",
+    "cancellation_policy",
+    "configuration_requirements",
+    "failure_handling",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "core_model": { "$ref": "#/$defs/object_record" },
+    "routing_rules": { "$ref": "#/$defs/object_record" },
+    "status_model": { "$ref": "#/$defs/object_record" },
+    "station_workflow": { "$ref": "#/$defs/object_record" },
+    "customer_visibility": { "$ref": "#/$defs/object_record" },
+    "staff_visibility": { "$ref": "#/$defs/object_record" },
+    "cancellation_policy": { "$ref": "#/$defs/object_record" },
+    "configuration_requirements": { "$ref": "#/$defs/object_record" },
+    "failure_handling": { "$ref": "#/$defs/object_record" },
+    "open_decisions": { "type": "array", "items": { "$ref": "#/$defs/open_decision" } },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "03-domain.station-order-routing" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/03-domain/station-order-routing.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "open_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SOR-[0-9]{3}$" },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    }
+  }
+}
