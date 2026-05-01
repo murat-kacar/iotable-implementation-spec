@@ -114,7 +114,11 @@ specification_sections:
     schema_path: "schemas/05-identity-access"
     purpose: "Defines authentication, authorization, user roles, permissions, activation, and session behavior."
     required: true
-    documents: []
+    documents:
+      - id: "05-identity-access.permission-catalog"
+        path: "specs/05-identity-access/permission-catalog.yaml"
+        schema_file: "schemas/05-identity-access/permission-catalog.schema.json"
+        status: "draft"
 
   - id: "06-application-surfaces"
     path: "specs/06-application-surfaces"
@@ -235,9 +239,5 @@ schema_policy:
 open_items:
   - id: "IDX-001"
     topic: "Define ESP32 device identity model."
-    status: "open"
-    source_document: "specs/01-product/product-baseline.yaml"
-  - id: "IDX-002"
-    topic: "Define permission catalog and role-permission matrix."
     status: "open"
     source_document: "specs/01-product/product-baseline.yaml"
