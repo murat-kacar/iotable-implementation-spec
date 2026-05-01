@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/02-system-architecture/backend-solution-structure.schema.json",
+  "title": "IoTable Backend Solution Structure Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "backend_stack",
+    "solution_policy",
+    "repository_layout",
+    "host_projects",
+    "building_blocks",
+    "module_project_pattern",
+    "modules",
+    "initial_backend_tree",
+    "project_dependency_rules",
+    "configuration_rules",
+    "verification_rules",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "backend_stack": { "$ref": "#/$defs/object_record" },
+    "solution_policy": { "$ref": "#/$defs/object_record" },
+    "repository_layout": { "$ref": "#/$defs/object_record" },
+    "host_projects": { "type": "array", "items": { "$ref": "#/$defs/object_record" } },
+    "building_blocks": { "type": "array", "items": { "$ref": "#/$defs/object_record" } },
+    "module_project_pattern": { "$ref": "#/$defs/object_record" },
+    "modules": { "$ref": "#/$defs/object_record" },
+    "initial_backend_tree": { "$ref": "#/$defs/object_record" },
+    "project_dependency_rules": { "type": "array", "items": { "$ref": "#/$defs/rule_record" } },
+    "configuration_rules": { "type": "array", "items": { "$ref": "#/$defs/config_rule_record" } },
+    "verification_rules": { "$ref": "#/$defs/object_record" },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "open_decisions": { "type": "array", "items": { "$ref": "#/$defs/open_decision" } },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "02-system-architecture.backend-solution-structure" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/02-system-architecture/backend-solution-structure.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^BSS-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "config_rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^BSC-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "open_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^BSS-OD-[0-9]{3}$" },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    }
+  }
+}
