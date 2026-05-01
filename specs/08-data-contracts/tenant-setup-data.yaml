@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define tenant setup database ownership, tenant database isolation, setup entities, table/station/menu/device/staff invite data contracts, and forbidden cross-tenant data behavior."
+  rule: "Define tenant setup database ownership, tenant database isolation, setup entities, table/station/menu/device/staff invite data contracts, tenant asset records, and forbidden cross-tenant data behavior."
   applies_to:
     - "tenant_database"
     - "tenant_setup_console"
@@ -55,6 +55,7 @@ platform_database_boundary:
     - "stations"
     - "menu_categories"
     - "menu_items"
+    - "tenant_assets"
     - "table_devices"
     - "staff_invites"
     - "orders"
@@ -66,6 +67,7 @@ platform_database_boundary:
   rules:
     - "Platform database MAY store tenant lifecycle metadata and tenant database registry data."
     - "Platform database MUST NOT store tenant setup or tenant operational entities."
+    - "Platform database MUST NOT store tenant image asset records."
     - "Platform database MUST NOT store ESP32 device secrets or firmware configuration."
 
 tenant_database_boundary:
@@ -76,6 +78,7 @@ tenant_database_boundary:
     - "stations"
     - "menu_categories"
     - "menu_items"
+    - "tenant_assets"
     - "table_devices"
     - "staff_invites"
   future_operational_owners:
@@ -127,7 +130,7 @@ tables:
       business_legal_name: "text_nullable"
       phone: "text_nullable"
       address: "text_nullable"
-      logo_asset_id: "uuid_nullable"
+      logo_asset_id: "uuid_nullable_fk_tenant_assets"
       default_service_mode: "enum_required_default_dine_in"
       default_tax_display_mode: "enum_required_default_tax_included"
       opening_hours_json: "jsonb_nullable"
@@ -164,6 +167,35 @@ tables:
       - "active"
     constraints:
       - "single_row_guard"
+
+  tenant_assets:
+    ownership: "tenant_database"
+    purpose: "Stores tenant-scoped asset metadata for menu item images and optional tenant visuals."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      asset_type: "enum_required"
+      storage_key: "text_required_unique"
+      original_file_name: "text_nullable"
+      content_type: "text_required"
+      byte_size: "integer_required"
+      width_px: "integer_nullable"
+      height_px: "integer_nullable"
+      status: "enum_required"
+      created_by_user_id: "uuid_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_asset_types:
+      - "menu_item_image"
+      - "tenant_logo"
+      - "setup_visual"
+    allowed_statuses:
+      - "active"
+      - "deleted"
+    constraints:
+      - "tenant_asset_storage_key_unique"
+      - "asset_metadata_only_in_database"
+      - "asset_binary_storage_must_be_tenant_scoped"
 
   tables:
     ownership: "tenant_database"
@@ -267,7 +299,7 @@ tables:
       category_id: "uuid_required_fk_menu_categories"
       name: "text_required"
       description: "text_nullable"
-      image_asset_id: "uuid_required"
+      image_asset_id: "uuid_required_fk_tenant_assets"
       price_amount: "numeric_required_when_orderable"
       price_currency: "char3_required_default_TRY"
       station_id: "uuid_required_when_orderable_fk_stations"
@@ -381,6 +413,13 @@ firmware_data_security:
     - "Wi-Fi credentials MUST NOT be logged in plaintext."
     - "Firmware download events MUST be audited in tenant audit or setup audit records."
 
+asset_data_security:
+  rules:
+    - "Tenant asset metadata MUST be stored in the tenant database."
+    - "Tenant asset binary storage MUST be tenant-scoped."
+    - "Tenant asset records MUST NOT be stored in the platform database."
+    - "Menu item image_asset_id MUST reference tenant_assets.id in the same tenant database."
+
 forbidden_behavior:
   - "shared_tenant_database_with_tenant_id_filter_isolation"
   - "tenant_operational_data_in_platform_database"
@@ -389,10 +428,12 @@ forbidden_behavior:
   - "platform_database_storing_menu_items"
   - "platform_database_storing_orders"
   - "platform_database_storing_table_devices"
+  - "platform_database_storing_tenant_assets"
   - "platform_database_storing_device_secret_hashes"
   - "tenant_setup_tables_using_tenant_id_as_primary_isolation"
   - "activation_gate_counting_system_test_tables"
   - "table_without_qr_device_customer_self_ordering_enabled"
+  - "menu_item_image_asset_outside_resolved_tenant_database"
   - "plaintext_device_secret_persistence"
   - "plaintext_invite_token_persistence"
 
@@ -405,6 +446,7 @@ done_when:
   - "common_columns_are_defined"
   - "tenant_profile_table_is_defined"
   - "tenant_setup_state_table_is_defined"
+  - "tenant_assets_table_is_defined"
   - "tables_table_is_defined"
   - "stations_table_is_defined"
   - "menu_categories_table_is_defined"
@@ -413,4 +455,5 @@ done_when:
   - "staff_invites_table_is_defined"
   - "activation_gate_queries_are_defined"
   - "firmware_data_security_is_defined"
+  - "asset_data_security_is_defined"
   - "forbidden_data_behavior_is_defined"
