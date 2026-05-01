@@ -1,0 +1,210 @@
+document:
+  id: "06-application-surfaces.tenant-setup-console"
+  title: "IoTable Tenant Setup Console"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/06-application-surfaces/tenant-setup-console.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables, operation activation requirements, and setup ownership rules."
+  applies_to:
+    - "tenant_setup_console"
+    - "tenant_owner_activation"
+    - "tenant_initial_configuration"
+    - "tenant_operations_activation"
+    - "tenant_default_seed_data"
+
+surface:
+  id: "tenant_setup_console"
+  frontend_app: "tenant_web"
+  route_family: "https://{tenant}.iotables.net/console/**"
+  api_family: "https://{tenant}.iotables.net/api/internal/**"
+  allowed_roles:
+    - "tenant_owner"
+    - "tenant_admin"
+    - "tenant_manager"
+  required_permissions:
+    view: "tenant.setup.view"
+    complete: "tenant.setup.complete"
+  rules:
+    - "Tenant setup console MUST be served only from the tenant domain."
+    - "Tenant setup console MUST NOT be served from platform.iotables.net."
+    - "Tenant setup console MUST use tenant internal APIs."
+    - "Tenant setup console MUST NOT use platform APIs."
+    - "Tenant setup console MUST require authenticated tenant staff access."
+
+tenant_setup_flow:
+  style: "guided_setup_wizard"
+  first_login_behavior: "tenant_owner_is_directed_to_setup_wizard_after_activation"
+  operations_dashboard_available_before_activation: false
+  resume_supported: true
+  partial_save_supported: true
+  rules:
+    - "Tenant owner activation MUST complete before tenant setup can be completed."
+    - "A tenant with incomplete setup MUST show the guided setup wizard to authorized setup users."
+    - "Setup progress MUST be persisted."
+    - "Setup wizard MUST be resumable."
+    - "Tenant operations MUST NOT be activated until required setup gates pass."
+
+setup_steps:
+  - id: "business_profile"
+    required: true
+    purpose: "Capture tenant public and operational business identity."
+    required_fields:
+      - "business_display_name"
+      - "business_type"
+      - "default_currency"
+      - "default_timezone"
+    optional_fields:
+      - "business_legal_name"
+      - "phone"
+      - "address"
+      - "logo"
+  - id: "operating_defaults"
+    required: true
+    purpose: "Define baseline operational defaults."
+    required_fields:
+      - "default_service_mode"
+      - "default_tax_display_mode"
+    optional_fields:
+      - "opening_hours"
+      - "service_charge"
+  - id: "tables"
+    required: true
+    purpose: "Define customer-facing tables."
+    required_minimums:
+      active_operational_tables: 1
+    seeded_defaults:
+      - "000"
+      - "999"
+  - id: "stations"
+    required: true
+    purpose: "Define fulfillment stations."
+    required_minimums:
+      active_stations: 1
+  - id: "menu_categories"
+    required: true
+    purpose: "Define menu grouping."
+    required_minimums:
+      active_menu_categories: 1
+  - id: "menu_items"
+    required: true
+    purpose: "Define orderable products and station routing."
+    required_minimums:
+      active_orderable_menu_items: 1
+    rules:
+      - "Every orderable menu item MUST have a price."
+      - "Every orderable menu item MUST have station routing."
+  - id: "staff_users"
+    required: false
+    purpose: "Invite tenant staff users and assign fixed roles."
+  - id: "devices"
+    required: false
+    purpose: "Pair ESP32 table QR display devices."
+    rules:
+      - "ESP32 device pairing MUST NOT be required for tenant operations activation."
+      - "Device pairing MAY be completed after operations activation."
+  - id: "review_and_activate_operations"
+    required: true
+    purpose: "Validate setup gates and activate tenant operations."
+
+default_seed_tables:
+  created_for_every_tenant: true
+  source: "tenant_provisioning_seed"
+  tables:
+    - table_number: "000"
+      table_code: "000"
+      name: "Test Table 000"
+      type: "system_test"
+      operational_use: false
+      customer_production_use_allowed: false
+      purpose:
+        - "internal_testing"
+        - "review"
+        - "showcase"
+        - "user_acceptance_testing"
+      rules:
+        - "Table 000 MUST be created automatically for every tenant."
+        - "Table 000 MUST be clearly marked as a non-production test table."
+        - "Table 000 MUST NOT count toward the required minimum active operational table gate."
+    - table_number: "999"
+      table_code: "999"
+      name: "Test Table 999"
+      type: "system_test"
+      operational_use: false
+      customer_production_use_allowed: false
+      purpose:
+        - "internal_testing"
+        - "review"
+        - "showcase"
+        - "user_acceptance_testing"
+      rules:
+        - "Table 999 MUST be created automatically for every tenant."
+        - "Table 999 MUST be clearly marked as a non-production test table."
+        - "Table 999 MUST NOT count toward the required minimum active operational table gate."
+  global_rules:
+    - "Every tenant MUST receive table 000 and table 999 during tenant provisioning."
+    - "Default test tables MUST be usable for test, review, showcase, and user acceptance testing flows."
+    - "Default test tables MUST be visually distinguishable from production operational tables in tenant UI."
+    - "Default test tables MUST NOT satisfy the minimum operational table requirement."
+    - "Default test tables MUST NOT be deleted by tenant users."
+    - "Default test tables MAY be disabled for customer-facing production routes only if testing routes remain available to authorized tenant users."
+
+operations_activation_gates:
+  required_before_activation:
+    - "business_profile_completed"
+    - "operating_defaults_completed"
+    - "at_least_one_active_operational_table_created"
+    - "at_least_one_active_station_created"
+    - "at_least_one_active_menu_category_created"
+    - "at_least_one_active_orderable_menu_item_created"
+    - "every_orderable_menu_item_has_station_routing"
+    - "tenant_owner_activation_completed"
+  optional_before_activation:
+    - "staff_users_invited"
+    - "esp32_devices_paired"
+    - "opening_hours_configured"
+    - "service_charge_configured"
+  rules:
+    - "Default test tables 000 and 999 MUST NOT count as active operational tables for activation gates."
+    - "Operations activation MUST fail when there is no active operational table besides default test tables."
+    - "Operations activation MUST fail when no active station exists."
+    - "Operations activation MUST fail when no active orderable menu item exists."
+    - "Operations activation MUST fail when any orderable menu item lacks station routing."
+
+post_activation_behavior:
+  tenant_operations_status: "active"
+  setup_wizard_access_after_activation: "available_as_setup_console"
+  dashboard_access_after_activation: true
+  rules:
+    - "After operations activation, authorized users MAY revisit setup sections from tenant console."
+    - "Changes after activation MUST respect tenant permissions."
+    - "Operations activation MUST be auditable."
+
+forbidden_behavior:
+  - "tenant_operations_activation_without_business_profile"
+  - "tenant_operations_activation_without_operational_table"
+  - "tenant_operations_activation_counting_table_000_as_operational_table"
+  - "tenant_operations_activation_counting_table_999_as_operational_table"
+  - "tenant_operations_activation_without_station"
+  - "tenant_operations_activation_without_orderable_menu_item"
+  - "tenant_operations_activation_with_unrouted_orderable_menu_item"
+  - "tenant_setup_console_using_platform_api"
+  - "tenant_deleting_default_test_table_000"
+  - "tenant_deleting_default_test_table_999"
+  - "esp32_device_pairing_required_for_activation"
+
+open_decisions: []
+
+done_when:
+  - "tenant_setup_surface_is_defined"
+  - "guided_setup_flow_is_defined"
+  - "setup_steps_are_defined"
+  - "default_seed_tables_are_defined"
+  - "operations_activation_gates_are_defined"
+  - "post_activation_behavior_is_defined"
+  - "forbidden_setup_behavior_is_defined"
