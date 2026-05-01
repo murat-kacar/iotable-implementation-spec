@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/05-identity-access/permission-catalog.schema.json",
+  "title": "IoTable Permission Catalog and Role Matrix Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "permission_model",
+    "role_catalog",
+    "permission_namespaces",
+    "platform_permissions",
+    "tenant_permissions",
+    "role_permission_matrix",
+    "operation_authorization_rules",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "permission_model": { "$ref": "#/$defs/object_record" },
+    "role_catalog": { "$ref": "#/$defs/object_record" },
+    "permission_namespaces": { "$ref": "#/$defs/object_record" },
+    "platform_permissions": { "$ref": "#/$defs/object_record" },
+    "tenant_permissions": { "$ref": "#/$defs/object_record" },
+    "role_permission_matrix": { "$ref": "#/$defs/object_record" },
+    "operation_authorization_rules": { "type": "array", "items": { "$ref": "#/$defs/authorization_rule" } },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "open_decisions": { "type": "array" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "05-identity-access.permission-catalog" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/05-identity-access/permission-catalog.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "authorization_rule": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "operation", "rules"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^PAR-[0-9]{3}$" },
+        "operation": { "type": "string", "minLength": 1 },
+        "required_permission": { "type": "string" },
+        "required_permissions": { "$ref": "#/$defs/string_array" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    }
+  }
+}
