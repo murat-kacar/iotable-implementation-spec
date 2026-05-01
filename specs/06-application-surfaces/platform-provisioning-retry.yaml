@@ -1,0 +1,197 @@
+document:
+  id: "06-application-surfaces.platform-provisioning-retry"
+  title: "IoTable Platform Provisioning Retry"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/06-application-surfaces/platform-provisioning-retry.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define platform owner behavior for failed tenant provisioning jobs and provisioning retry UI behavior."
+  audience:
+    - "platform_owner"
+  applies_to:
+    - "platform_dashboard"
+    - "tenant_detail.provisioning"
+    - "jobs"
+    - "job_detail"
+    - "platform_audit"
+
+provisioning_retry_policy:
+  retry_model: "manual_retry_from_failed_step"
+  automatic_retry: false
+  retry_actor: "platform_owner"
+  retry_requires_reason: true
+  retry_creates_audit_record: true
+  retry_starts_from: "failed_step"
+  retry_preserves_completed_steps: true
+  retry_limit: 3
+  after_retry_limit: "manual_intervention_required"
+  rules:
+    - "Provisioning retry MUST NOT be automatic."
+    - "Only platform_owner MAY retry a failed provisioning job."
+    - "Retry MUST start from the failed step."
+    - "Completed provisioning steps MUST NOT be re-executed."
+    - "Retry MUST require a platform_owner-provided reason."
+    - "Every retry attempt MUST create a platform audit record."
+    - "A provisioning job MUST allow at most 3 retry attempts."
+    - "After the retry limit is reached, the job MUST become manual_intervention_required."
+
+provisioning_steps:
+  - id: "create_tenant_record"
+    retryable: false
+    reason: "Tenant registry record is the initiating record and MUST NOT be duplicated."
+  - id: "reserve_tenant_domain"
+    retryable: true
+    idempotency_required: true
+  - id: "create_tenant_database"
+    retryable: true
+    idempotency_required: true
+  - id: "apply_tenant_schema"
+    retryable: true
+    idempotency_required: true
+  - id: "seed_tenant_database"
+    retryable: true
+    idempotency_required: true
+  - id: "create_owner_activation_invite"
+    retryable: true
+    idempotency_required: true
+  - id: "set_pending_activation"
+    retryable: true
+    idempotency_required: true
+
+job_status_model:
+  statuses:
+    - "queued"
+    - "running"
+    - "failed"
+    - "retrying"
+    - "completed"
+    - "manual_intervention_required"
+  terminal_statuses:
+    - "completed"
+    - "manual_intervention_required"
+  retryable_statuses:
+    - "failed"
+  non_retryable_statuses:
+    - "queued"
+    - "running"
+    - "retrying"
+    - "completed"
+    - "manual_intervention_required"
+
+platform_ui_behavior:
+  dashboard:
+    failed_provisioning_jobs_card:
+      visible_when_count_greater_than_zero: true
+      action_target: "/jobs?type=provisioning&status=failed"
+      severity: "critical"
+  tenant_detail_provisioning_tab:
+    required_fields:
+      - "latest_provisioning_job_id"
+      - "latest_provisioning_job_status"
+      - "current_step"
+      - "failed_step"
+      - "failure_message"
+      - "retry_attempt_count"
+      - "retry_limit"
+      - "retry_eligible"
+      - "last_retry_at"
+      - "manual_intervention_required"
+    retry_action:
+      label: "Retry from failed step"
+      visible_when: "latest_provisioning_job_status_is_failed_and_retry_attempt_count_below_limit"
+      requires_reason: true
+      confirmation_required: true
+  job_detail_screen:
+    required_sections:
+      - "job_summary"
+      - "step_timeline"
+      - "failure_details"
+      - "retry_history"
+      - "audit_trail"
+    retry_action:
+      label: "Retry from failed step"
+      requires_reason: true
+      confirmation_required: true
+
+retry_execution_rules:
+  atomicity:
+    rule: "Retry state transition MUST be atomic."
+    required_transition: "failed_to_retrying"
+  idempotency:
+    rule: "Every retryable provisioning step MUST be idempotent."
+  concurrency:
+    rules:
+      - "Only one retry attempt MAY run for the same provisioning job at a time."
+      - "Concurrent retry requests for the same job MUST be rejected."
+  completed_step_handling:
+    rule: "The retry executor MUST skip completed steps and resume at the failed step."
+  failure_handling:
+    rules:
+      - "If retry fails, the job status MUST return to failed unless retry_limit is reached."
+      - "If retry_limit is reached, the job status MUST become manual_intervention_required."
+
+platform_audit_events:
+  - id: "tenant_provisioning_retry_requested"
+    actor: "platform_owner"
+    required_fields:
+      - "tenant_id"
+      - "job_id"
+      - "failed_step"
+      - "retry_attempt_number"
+      - "reason"
+      - "created_at"
+  - id: "tenant_provisioning_retry_started"
+    actor: "system"
+    required_fields:
+      - "tenant_id"
+      - "job_id"
+      - "start_step"
+      - "created_at"
+  - id: "tenant_provisioning_retry_completed"
+    actor: "system"
+    required_fields:
+      - "tenant_id"
+      - "job_id"
+      - "created_at"
+  - id: "tenant_provisioning_retry_failed"
+    actor: "system"
+    required_fields:
+      - "tenant_id"
+      - "job_id"
+      - "failed_step"
+      - "failure_message"
+      - "created_at"
+  - id: "tenant_provisioning_manual_intervention_required"
+    actor: "system"
+    required_fields:
+      - "tenant_id"
+      - "job_id"
+      - "reason"
+      - "created_at"
+
+forbidden_behavior:
+  - "automatic_retry"
+  - "retry_from_beginning_by_default"
+  - "reexecuting_completed_steps"
+  - "retry_without_reason"
+  - "retry_without_audit"
+  - "silent_retry"
+
+open_decisions: []
+
+done_when:
+  - "manual_retry_from_failed_step_is_defined"
+  - "automatic_retry_is_forbidden"
+  - "retry_actor_is_defined"
+  - "retry_reason_requirement_is_defined"
+  - "retry_limit_is_defined"
+  - "provisioning_steps_are_defined"
+  - "job_status_model_is_defined"
+  - "platform_ui_behavior_is_defined"
+  - "retry_execution_rules_are_defined"
+  - "platform_audit_events_are_defined"
