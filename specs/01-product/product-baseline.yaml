@@ -236,67 +236,49 @@ payment_checkout_scope:
     - "Payment collection is handled outside IoTable."
 
 customer_ordering_session_baseline:
-  status: "partially_defined"
+  canonical_specification: "specs/13-security-compliance/customer-access-security.yaml"
   menu_access:
-    qr_scan_opens_menu: true
-    order_required_to_create_bill_session: true
-    order_required_to_create_table_bill: true
+    old_or_expired_qr_can_open_public_menu: true
+    old_or_expired_qr_can_show_active_bill_indicator: false
+    old_or_expired_qr_can_create_or_join_session: false
+    old_or_expired_qr_can_view_bill: false
+    old_or_expired_qr_can_mutate_cart: false
+    old_or_expired_qr_can_submit_order: false
+  fresh_qr_session_entry:
+    required_for_session_entry: true
+    creates_or_joins_session: true
+    consumes_qr: true
+    rotates_qr_after_consume: true
+    requires_cart_item: false
+  active_customer_session:
+    can_view_bill: true
+    can_mutate_cart: true
+    can_submit_order: true
+  order_submit_effect:
+    creates_bill_session_when_first_submitted_order_for_table: true
+    submitted_order_attaches_to_table_bill_session: true
+    submitted_cart_becomes_immutable: true
+    customer_session_becomes_offline_after_success: true
   table_bill_session:
     scope: "table"
-    creation_trigger: "first_submitted_order_for_table"
     shared_by_multiple_customers: true
-    customer_can_view_bill: true
     closing_actor: "cashier"
     closing_trigger: "manual_payment_received_recorded_by_cashier"
-  cart_and_ordering:
-    customer_can_add_items_to_cart: true
-    customer_can_submit_order: true
-    submitted_orders_attach_to_table_bill_session: true
-    multiple_customers_same_table_allowed: true
-    all_customer_orders_write_to_same_table_bill: true
-  tracking:
-    customer_can_track_process: true
-    staff_can_track_process: true
-    individual_customer_order_tracking: "open_decision"
   station_flow:
     submitted_items_route_to_station: true
     station_acceptance_required: true
     station_ready_mark_required: true
-  qr_presence_security:
-    status: "requires_deeper_modeling"
-    model: "single_use_current_qr_required_for_join_cart_mutation_and_order_submission"
-    qr_display_device: "esp32_tft_display"
-    qr_rotation_interval_seconds: 60
-    rotate_after_successful_join: true
-    server_generated_qr: true
-    token_storage_model: "hashed_token_registry"
-    token_lookup_model: "indexed_token_hash_lookup"
-    store_token_plaintext: false
-    token_hash_algorithm: "SHA-256"
-    token_reuse_allowed: false
-    known_invalid_qr_response:
-      response_type: "controlled_qr_status_page"
-      http_status: 410
-      purpose: "explain_and_recover"
-      recovery_instruction_required: true
-      messages:
-        expired:
-          title: "QR code expired"
-          body: "Please scan the current QR code shown on the table screen."
-        already_used:
-          title: "QR code already used"
-          body: "This QR code was already used by another guest. Please scan the new QR code shown on the table screen."
-        replaced:
-          title: "New QR code available"
-          body: "The table QR code has changed. Please scan the current QR code on the table screen."
-    unknown_qr_response:
-      response_type: "generic_invalid_or_not_found"
-      http_status: 404
   rules:
     - "A table bill session MUST NOT exist only because the menu was opened."
     - "A table bill session MUST be created when the first order is submitted for the table."
+    - "Old or expired QR codes MUST expose public menu only."
+    - "Fresh QR session entry MUST NOT require a cart item."
+    - "Cart mutation MUST require an active customer session."
+    - "Cart mutation MUST NOT require a fresh QR for every item."
+    - "Order submission MUST require an active customer session."
+    - "Successful order submission MUST move the customer session offline."
     - "Multiple customers MAY participate at the same table."
-    - "Customers joining the same table MUST write orders to the same table bill session."
+    - "Customers joining the same table MUST write submitted orders to the same table bill session."
     - "The cashier MUST close the table bill session manually after external payment collection."
     - "Submitted order items MUST be routed to the relevant station workflow."
     - "Stations MUST acknowledge accepted work."
@@ -398,20 +380,28 @@ api_families:
     route_family:
       - "https://{tenant}.iotables.net/api/internal/**"
 
+product_decision_references:
+  - id: "PDR-001"
+    topic: "Customer access security"
+    canonical_document: "specs/13-security-compliance/customer-access-security.yaml"
+  - id: "PDR-002"
+    topic: "Frontend application split"
+    canonical_document: "specs/02-system-architecture/frontend-application-split.yaml"
+  - id: "PDR-003"
+    topic: "Platform control plane"
+    canonical_document: "specs/06-application-surfaces/platform-control-plane.yaml"
+  - id: "PDR-004"
+    topic: "Platform API contracts"
+    canonical_document: "specs/07-api-contracts/platform-api.yaml"
+  - id: "PDR-005"
+    topic: "Platform data contracts"
+    canonical_document: "specs/08-data-contracts/platform-data.yaml"
+
 open_product_decisions:
   - id: "PD-001"
-    topic: "Customer session, QR, and bill membership model"
-    status: "open"
-  - id: "PD-002"
-    topic: "QR token server-side rotation registry design"
-    status: "open"
-  - id: "PD-003"
-    topic: "Admin panel application and deployment split"
-    status: "open"
-  - id: "PD-004"
     topic: "ESP32 device identity model"
     status: "open"
-  - id: "PD-005"
+  - id: "PD-002"
     topic: "Permission catalog and role-permission matrix"
     status: "open"
 
@@ -426,8 +416,9 @@ done_when:
   - "route_namespace_standard_is_defined"
   - "authentication_authorization_baseline_is_defined"
   - "payment_checkout_scope_is_defined"
-  - "customer_ordering_session_baseline_is_partially_defined"
+  - "customer_ordering_session_baseline_matches_customer_access_security"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
-  - "open_product_decisions_are_recorded"
+  - "product_decision_references_are_defined"
+  - "remaining_open_product_decisions_are_recorded"
