@@ -35,6 +35,8 @@ platform_database_scope:
     - "tenant_domain_registry"
     - "tenant_provisioning_jobs"
     - "tenant_database_registry"
+    - "tenant_schema_change_jobs"
+    - "tenant_schema_change_job_runs"
     - "platform_users"
     - "platform_roles"
     - "platform_audit_log"
@@ -115,6 +117,23 @@ provisioning_lifecycle:
       table_device_connections: "rejected"
       tenant_database_state: "preserved_locked"
       reactivation_actor: "platform_admin"
+
+tenant_database_schema_change_orchestration:
+  owner: "platform"
+  execution_model: "platform_level_migration_orchestrator"
+  execution_strategy: "sequential_per_tenant"
+  version_tracking: "per_tenant_database"
+  job_tracking: "platform_database"
+  failure_isolation: true
+  resumable: true
+  new_tenant_schema: "latest_available_schema"
+  rules:
+    - "Every tenant database MUST track its own schema version."
+    - "Every tenant database schema change job MUST be recorded in the platform database."
+    - "A failed tenant schema change MUST NOT corrupt other tenant databases."
+    - "A failed tenant schema change MUST be resumable from the platform control plane."
+    - "A new tenant database MUST be created with the latest available tenant schema."
+    - "Platform users MUST be able to inspect tenant schema change job status per tenant."
 
 stakeholders:
   - id: "platform_owner"
@@ -256,15 +275,13 @@ open_product_decisions:
   - id: "PD-009"
     topic: "Architecture style decision"
     status: "open"
-  - id: "PD-010"
-    topic: "Tenant database schema change orchestration"
-    status: "open"
 
 done_when:
   - "product_identity_is_defined"
   - "multi_tenancy_baseline_is_defined"
   - "provisioning_lifecycle_is_defined"
   - "tenant_status_behavior_is_defined"
+  - "tenant_database_schema_change_orchestration_is_defined"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
