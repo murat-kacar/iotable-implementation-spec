@@ -1,0 +1,252 @@
+document:
+  id: "04-tenancy.tenant-lifecycle-provisioning"
+  title: "IoTable Tenant Lifecycle and Provisioning"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/04-tenancy/tenant-lifecycle-provisioning.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant lifecycle statuses, platform tenant creation, tenant database provisioning, schema application, seed data insertion, owner activation invite creation, failure handling, retry behavior, and lifecycle versus operations activation boundaries."
+  applies_to:
+    - "platform_control_plane"
+    - "tenant_lifecycle"
+    - "tenant_provisioning"
+    - "tenant_database_registry"
+    - "tenant_domain_registry"
+    - "tenant_schema_jobs"
+    - "tenant_owner_activation"
+
+lifecycle_statuses:
+  allowed_statuses:
+    - "draft"
+    - "provisioning"
+    - "active"
+    - "suspended"
+    - "deactivated"
+    - "provisioning_failed"
+  initial_status: "draft"
+  terminal_statuses:
+    - "deactivated"
+  recoverable_statuses:
+    - "provisioning_failed"
+    - "suspended"
+  rules:
+    - "Tenant lifecycle status is platform-owned metadata."
+    - "Tenant lifecycle active MUST mean the tenant technical environment is provisioned and available."
+    - "Tenant lifecycle active MUST NOT mean tenant operations are customer-ordering active."
+    - "Tenant operations activation MUST be stored and evaluated inside the tenant database."
+    - "Suspended tenants MAY be reactivated."
+    - "Deactivated tenants MUST NOT be reactivated in the initial product version."
+
+lifecycle_vs_operations_activation:
+  tenant_lifecycle_active:
+    owner: "platform_database"
+    meaning: "Tenant technical environment exists, tenant domain resolves, tenant database is provisioned, schema is applied, seed data exists, and owner activation invite has been created."
+  tenant_operations_active:
+    owner: "tenant_database"
+    meaning: "Tenant setup activation gates passed and tenant operations were explicitly activated from tenant setup console."
+  rules:
+    - "Tenant lifecycle active and tenant operations active MUST be separate states."
+    - "A tenant MAY be lifecycle active while tenant operations are not_active."
+    - "Customer ordering MUST depend on tenant operations active, not only tenant lifecycle active."
+    - "Platform control plane MUST NOT directly activate tenant operations."
+
+provisioning_flow:
+  initiated_by: "platform_owner"
+  command: "CreateTenant"
+  steps:
+    - step: 1
+      id: "create_tenant_registry_row"
+      owner: "platform_database"
+      result: "tenant_registry row created with status draft or provisioning"
+    - step: 2
+      id: "reserve_tenant_slug"
+      owner: "platform_database"
+      result: "tenant slug reserved and marked immutable"
+    - step: 3
+      id: "register_tenant_domain"
+      owner: "platform_database"
+      result: "{tenant}.iotables.net domain mapping inserted into tenant_domain_registry"
+    - step: 4
+      id: "create_tenant_database_registry_row"
+      owner: "platform_database"
+      result: "tenant database name and connection reference registered"
+    - step: 5
+      id: "create_tenant_database"
+      owner: "database_server"
+      result: "dedicated tenant PostgreSQL database created"
+    - step: 6
+      id: "apply_tenant_schema"
+      owner: "tenant_database"
+      result: "current tenant schema applied"
+    - step: 7
+      id: "insert_tenant_seed_data"
+      owner: "tenant_database"
+      result: "tenant setup seed data inserted"
+    - step: 8
+      id: "create_tenant_owner_activation_invite"
+      owner: "tenant_database"
+      result: "tenant owner activation invite created"
+    - step: 9
+      id: "mark_tenant_lifecycle_active"
+      owner: "platform_database"
+      result: "tenant lifecycle status set to active"
+  rules:
+    - "Provisioning MUST be tracked as a platform job."
+    - "Provisioning steps MUST be idempotent where possible."
+    - "Provisioning MUST create exactly one dedicated tenant database."
+    - "Provisioning MUST insert required tenant seed data before lifecycle active."
+    - "Provisioning MUST create tenant owner activation invite before lifecycle active."
+
+slug_policy:
+  source: "platform_owner_input"
+  immutable_after_creation: true
+  used_for:
+    - "tenant_domain"
+    - "tenant_database_name_generation"
+    - "tenant_registry_lookup"
+    - "audit_correlation"
+  rules:
+    - "Tenant slug MUST be unique."
+    - "Tenant slug MUST be immutable after tenant creation."
+    - "Tenant slug MUST be safe for subdomain use."
+    - "Tenant slug changes MUST NOT be supported in the initial product version."
+
+database_naming_policy:
+  pattern: "iotable_tenant_{tenantSlug}"
+  generated_by_system: true
+  connection_resolution: "platform_tenant_database_registry"
+  rules:
+    - "Tenant database name MUST be generated by the system."
+    - "Tenant database name MUST follow the configured database naming pattern."
+    - "Connection strings or connection secrets MUST NOT be built from client input."
+    - "Tenant database connection MUST be resolved from trusted platform registry and server secret configuration."
+
+seed_data:
+  inserted_during: "tenant_database_provisioning"
+  required_seed_entities:
+    tenant_setup_state:
+      status: "not_started"
+      activation_status: "not_active"
+    system_test_tables:
+      - table_number: "000"
+        table_type: "system_test"
+        has_qr_device: false
+        customer_self_ordering_enabled: false
+        staff_pda_ordering_enabled: true
+      - table_number: "999"
+        table_type: "system_test"
+        has_qr_device: false
+        customer_self_ordering_enabled: false
+        staff_pda_ordering_enabled: true
+    default_station:
+      station_code: "MAIN"
+      display_name: "Main Station"
+      station_type: "kitchen"
+      status: "active"
+  rules:
+    - "Tenant setup state MUST be seeded during provisioning."
+    - "System test tables 000 and 999 MUST be seeded during provisioning."
+    - "MAIN station MUST be seeded during provisioning."
+    - "Seed data MUST be idempotent."
+    - "Seed data MUST be inserted only into the tenant database."
+
+owner_activation_invite:
+  created_during_provisioning: true
+  ttl_hours: 168
+  storage_scope: "tenant_database"
+  token_storage: "hash_only"
+  role_assigned: "tenant_owner"
+  rules:
+    - "Tenant owner activation invite MUST be created during provisioning."
+    - "Tenant owner activation invite MUST expire after 168 hours."
+    - "Tenant owner activation token MUST be stored hash-only."
+    - "Tenant owner activation invite MUST assign tenant_owner role."
+    - "Tenant owner activation invite MUST NOT be created by tenant staff invite API."
+    - "Tenant owner activation invite creation MUST be audited."
+
+provisioning_success_criteria:
+  lifecycle_active_when:
+    - "tenant_registry_row_created"
+    - "tenant_domain_registered"
+    - "tenant_database_registry_row_created"
+    - "tenant_database_created"
+    - "tenant_schema_applied"
+    - "tenant_seed_data_inserted"
+    - "tenant_owner_activation_invite_created"
+  rules:
+    - "Tenant MUST NOT be marked lifecycle active before all success criteria pass."
+    - "Tenant lifecycle active MUST NOT bypass tenant setup activation gates."
+
+provisioning_failure:
+  failure_status: "provisioning_failed"
+  retry_allowed: true
+  partial_resources_tracked: true
+  automatic_destructive_cleanup: false
+  failure_metadata_required:
+    - "failed_step"
+    - "error_code"
+    - "error_message_safe"
+    - "occurred_at_utc"
+  rules:
+    - "Provisioning failure MUST set tenant lifecycle status to provisioning_failed."
+    - "Provisioning failure MUST record failed step and safe error details."
+    - "Provisioning failure MUST track partial resources that were created."
+    - "Provisioning failure MUST NOT automatically delete partial resources."
+    - "Provisioning retry MUST be initiated from platform control plane by authorized platform_owner."
+    - "Provisioning retry MUST be idempotent and safe against already-created resources."
+
+retry_policy:
+  allowed_for_statuses:
+    - "provisioning_failed"
+  actor_permission: "platform.provisioning.retry"
+  retry_strategy: "resume_from_failed_or_idempotently_recheck_prior_steps"
+  destructive_retry_allowed: false
+  rules:
+    - "Retry MUST NOT blindly recreate resources without checking existing state."
+    - "Retry MUST NOT drop an existing tenant database automatically."
+    - "Retry MUST revalidate tenant slug, domain registry, database registry, schema state, seed state, and owner invite state."
+    - "Retry result MUST be audited in platform audit."
+
+schema_versioning:
+  tenant_schema_version_tracked: true
+  owner: "platform_schema_jobs_and_tenant_database_metadata"
+  rules:
+    - "Tenant schema version MUST be tracked per tenant database."
+    - "Schema application during provisioning MUST record applied schema version."
+    - "Schema jobs after provisioning MUST target tenant databases explicitly through platform schema job orchestration."
+    - "Schema jobs MUST NOT run cross-tenant operations from tenant runtime requests."
+
+forbidden_behavior:
+  - "tenant_lifecycle_active_implying_operations_active"
+  - "platform_control_plane_directly_activating_tenant_operations"
+  - "tenant_slug_edit_after_creation_initial_version"
+  - "tenant_database_name_from_client_input"
+  - "tenant_provisioning_without_dedicated_database"
+  - "tenant_lifecycle_active_before_seed_data"
+  - "tenant_lifecycle_active_before_owner_activation_invite"
+  - "automatic_destructive_cleanup_after_provisioning_failure"
+  - "blind_retry_recreating_existing_resources"
+  - "retry_dropping_existing_tenant_database"
+  - "owner_activation_invite_token_plaintext_storage"
+  - "tenant_seed_data_inserted_into_platform_database"
+
+open_decisions: []
+
+done_when:
+  - "lifecycle_statuses_are_defined"
+  - "lifecycle_vs_operations_activation_boundary_is_defined"
+  - "provisioning_flow_is_defined"
+  - "slug_policy_is_defined"
+  - "database_naming_policy_is_defined"
+  - "seed_data_is_defined"
+  - "owner_activation_invite_is_defined"
+  - "provisioning_success_criteria_are_defined"
+  - "provisioning_failure_policy_is_defined"
+  - "retry_policy_is_defined"
+  - "schema_versioning_policy_is_defined"
+  - "forbidden_lifecycle_behavior_is_defined"
