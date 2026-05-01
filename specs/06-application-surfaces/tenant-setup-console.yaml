@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables, operation activation requirements, and setup ownership rules."
+  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
   applies_to:
     - "tenant_setup_console"
     - "tenant_owner_activation"
@@ -50,6 +50,55 @@ tenant_setup_flow:
     - "Setup wizard MUST be resumable."
     - "Tenant operations MUST NOT be activated until required setup gates pass."
 
+business_profile_defaults:
+  business_type_default: "cafe"
+  default_currency: "TRY"
+  default_timezone: "Europe/Istanbul"
+  allowed_business_types:
+    - "cafe"
+    - "restaurant"
+    - "bar"
+    - "food_court_vendor"
+    - "cloud_kitchen"
+    - "other"
+  required_fields:
+    - "business_display_name"
+    - "business_type"
+    - "default_currency"
+    - "default_timezone"
+  optional_fields:
+    - "business_legal_name"
+    - "phone"
+    - "address"
+    - "logo"
+  rules:
+    - "Business display name MUST be provided before operations activation."
+    - "Business type MUST use an allowed value."
+    - "Default currency MUST default to TRY."
+    - "Default timezone MUST default to Europe/Istanbul."
+    - "Business legal name MUST be optional."
+    - "Logo MUST be optional."
+
+operating_defaults:
+  default_service_mode: "dine_in"
+  allowed_service_modes:
+    - "dine_in"
+  default_tax_display_mode: "tax_included"
+  allowed_tax_display_modes:
+    - "tax_included"
+    - "tax_excluded"
+  opening_hours_required: false
+  service_charge_required: false
+  fiscal_meaning: false
+  rules:
+    - "Initial product version MUST support dine_in as the only service mode."
+    - "Delivery, pickup, takeaway, and room-service service modes MUST NOT be enabled in the initial product version."
+    - "Default tax display mode MUST be tax_included."
+    - "Tax display mode controls price presentation only."
+    - "Tax display mode MUST NOT imply fiscal device, e-invoice, e-archive, tax filing, or payment collection support."
+    - "Opening hours MUST be optional."
+    - "Service charge MUST be optional."
+
 setup_steps:
   - id: "business_profile"
     required: true
@@ -64,6 +113,10 @@ setup_steps:
       - "phone"
       - "address"
       - "logo"
+    defaults:
+      business_type: "cafe"
+      default_currency: "TRY"
+      default_timezone: "Europe/Istanbul"
   - id: "operating_defaults"
     required: true
     purpose: "Define baseline operational defaults."
@@ -73,6 +126,9 @@ setup_steps:
     optional_fields:
       - "opening_hours"
       - "service_charge"
+    defaults:
+      default_service_mode: "dine_in"
+      default_tax_display_mode: "tax_included"
   - id: "tables"
     required: true
     purpose: "Define customer-facing tables."
@@ -197,12 +253,18 @@ forbidden_behavior:
   - "tenant_deleting_default_test_table_000"
   - "tenant_deleting_default_test_table_999"
   - "esp32_device_pairing_required_for_activation"
+  - "tenant_initial_service_mode_delivery"
+  - "tenant_initial_service_mode_pickup"
+  - "tenant_initial_service_mode_takeaway"
+  - "tax_display_mode_implying_fiscal_support"
 
 open_decisions: []
 
 done_when:
   - "tenant_setup_surface_is_defined"
   - "guided_setup_flow_is_defined"
+  - "business_profile_defaults_are_defined"
+  - "operating_defaults_are_defined"
   - "setup_steps_are_defined"
   - "default_seed_tables_are_defined"
   - "operations_activation_gates_are_defined"
