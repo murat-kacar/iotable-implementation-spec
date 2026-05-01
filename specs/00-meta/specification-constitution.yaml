@@ -1,0 +1,325 @@
+document:
+  id: "00-meta.specification-constitution"
+  title: "IoTable Specification Constitution"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/00-meta/specification-constitution.schema.json"
+  status: "draft"
+
+product_identity:
+  canonical_name: "IoTable"
+  canonical_definition: "IoTable is a multi-tenant cafe and restaurant operations platform."
+  platform_domain: "platform.iotables.net"
+  tenant_domain_pattern: "{tenant}.iotables.net"
+
+specification_purpose:
+  primary_purpose: "Define a binding, pre-code implementation specification for LLM coding agents."
+  intended_reader:
+    - "LLM coding agent"
+  non_intended_reader:
+    - "end user"
+    - "marketing team"
+    - "sales team"
+    - "general business stakeholder"
+  code_generation_binding: true
+  code_must_follow_specification: true
+  specification_precedes_code: true
+
+source_of_truth_policy:
+  highest_authority: "project_owner"
+  project_owner: "user"
+  source_priority_order:
+    - "project_owner_binding_decision"
+    - "provided_product_source"
+    - "official_technical_documentation"
+    - "formal_standard_or_rfc"
+    - "framework_author_guidance"
+    - "mature_open_source_project"
+    - "major_engineering_organization_practice"
+    - "reputable_engineering_article"
+  llm_memory_authority: "none"
+  llm_output_authority: "none"
+  rule: "No requirement may enter the specification unless it is derived from an accepted source or accepted owner decision."
+
+missing_information_policy:
+  rule: "Missing, incomplete, or ambiguous information MUST NOT remain unresolved."
+  prohibited_behaviors:
+    - "inventing_product_behavior"
+    - "silently_filling_gaps"
+    - "presenting_guess_as_fact"
+    - "using_llm_memory_as_binding_source"
+    - "hiding_uncertainty"
+  required_behaviors:
+    - "identify_gap"
+    - "classify_gap"
+    - "research_technical_or_convention_gap"
+    - "present_options_when_multiple_valid_paths_exist"
+    - "separate_fact_from_recommendation"
+    - "request_owner_decision_for_product_behavior"
+  gap_types:
+    technical_gap:
+      action: "research_authoritative_sources"
+    product_gap:
+      action: "request_owner_decision"
+    convention_gap:
+      action: "research_proven_industry_conventions"
+    implementation_gap:
+      action: "research_stack_specific_patterns"
+    decision_gap:
+      action: "present_options_and_recommendation_before_freezing"
+
+research_policy:
+  goal: "Select modern, proven, suitable options for IoTable."
+  technology_selection_rule: "Prefer modern-proven technology over both bleeding-edge and obsolete-stable choices."
+  source_order:
+    - "official_documentation"
+    - "formal_standards"
+    - "framework_author_recommendations"
+    - "mature_open_source_projects"
+    - "major_engineering_organizations"
+    - "reputable_engineering_blogs"
+  forbidden:
+    - "choosing_newest_without_maturity_check"
+    - "choosing_oldest_only_because_stable"
+    - "treating_blog_content_as_binding"
+    - "copying_reference_product_behavior_without_fit_check"
+  reference_models:
+    ui_product_references:
+      - "Figma"
+      - "Canva"
+      - "Notion"
+    ui_design_system_references:
+      - "Ant Design"
+      - "Material Design"
+      - "shadcn/ui"
+      - "Radix UI"
+    engineering_ecosystem_references:
+      - "Microsoft"
+      - "Google"
+      - "Linux"
+      - "Meta"
+      - "PostgreSQL"
+      - "CNCF ecosystem"
+  reference_rule: "References are evidence and comparison material, not requirements."
+
+document_final_state_policy:
+  rule: "Every specification document MUST be written as the current final form of the system."
+  prohibited:
+    - "historical_references"
+    - "legacy_references"
+    - "migration_notes_from_previous_documentation"
+    - "patch_language"
+    - "temporary_fix_language"
+    - "backward_compatibility_notes_unless_part_of_current_product_behavior"
+  required:
+    - "self_contained_current_state"
+    - "direct_final_wording"
+    - "no_reference_to_prior_names_or_prior_versions"
+    - "no_changelog_style_requirements"
+  rule_detail: "Even documentation corrections MUST be applied as if the corrected version was the only version ever written."
+
+format_policy:
+  source_format: "yaml"
+  validation_format: "json_schema"
+  every_yaml_requires_schema: true
+  invalid_conditions:
+    - "yaml_file_without_matching_json_schema"
+    - "schema_without_corresponding_yaml_file"
+    - "undocumented_field"
+    - "freeform_requirement_without_type"
+  preferred_structures:
+    - "explicit_ids"
+    - "typed_records"
+    - "enumerated_statuses"
+    - "done_when_blocks"
+    - "acceptance_criteria_blocks"
+    - "forbidden_blocks"
+    - "dependencies_blocks"
+
+branch_policy:
+  single_branch_only: true
+  canonical_branch: "master"
+  pull_request_workflow: false
+  feature_branches_allowed: false
+  direct_commits_allowed: true
+
+writing_policy:
+  tone: "strict_literal_technical"
+  allowed_sentence_types:
+    - "requirement"
+    - "constraint"
+    - "decision"
+    - "dependency"
+    - "validation_rule"
+    - "open_question"
+    - "research_finding"
+    - "risk"
+    - "recommendation"
+  forbidden_sentence_types:
+    - "marketing_language"
+    - "motivational_language"
+    - "vague_advice"
+    - "ungrounded_best_practice"
+    - "hidden_assumption"
+    - "narrative_filler"
+  ambiguity_policy:
+    forbidden_terms_unless_defined:
+      - "appropriate"
+      - "as needed"
+      - "etc."
+      - "similar"
+      - "usually"
+      - "basically"
+      - "normal"
+      - "simple"
+      - "standard"
+
+llm_execution_policy:
+  target_executor: "LLM coding agent"
+  expected_capabilities:
+    - "read_specification"
+    - "follow_task_order"
+    - "create_files"
+    - "modify_files"
+    - "generate_code"
+    - "generate_tests"
+    - "run_verification_commands"
+    - "report_blockers"
+    - "avoid_unapproved_assumptions"
+  prohibited_behaviors:
+    - "skip_specified_tests"
+    - "change_architecture_without_spec_update"
+    - "create_undocumented_dependency"
+    - "invent_api_contract"
+    - "invent_database_column"
+    - "invent_role_permission"
+    - "rename_domain_concept_without_approval"
+  blocker_rule: "If required product behavior is missing, the LLM MUST stop that task and emit a blocker record."
+
+session_context_policy:
+  rule: "The LLM MUST NOT rely on memory for binding project rules."
+  required_behavior: "The LLM MUST load the current meta specification documents before performing specification work."
+
+architecture_documentation_policy:
+  primary_partitioning_method: "business_capability_boundary"
+  secondary_partitioning_methods:
+    - "aggregate_boundary"
+    - "transaction_ownership"
+    - "data_ownership"
+    - "api_contract_boundary"
+  forbidden_primary_partitioning_methods:
+    - "frontend_backend_split"
+    - "stakeholder_split"
+    - "screen_split"
+    - "route_split"
+  rule: "Frontend, backend, data, and tests are implementation aspects inside a capability boundary."
+
+engineering_principles:
+  architecture:
+    - "separation_of_concerns"
+    - "dependency_inversion"
+    - "explicit_boundaries"
+    - "modularity"
+    - "high_cohesion"
+    - "low_coupling"
+    - "clean_architecture_where_useful"
+    - "domain_driven_design_where_useful"
+  code_quality:
+    - "DRY"
+    - "SOLID"
+    - "KISS"
+    - "YAGNI"
+    - "fail_fast"
+    - "explicit_over_implicit"
+    - "no_magic_values"
+    - "no_hidden_side_effects"
+    - "deterministic_behavior"
+  api_and_contracts:
+    - "contract_first"
+    - "explicit_error_models"
+    - "idempotency_where_needed"
+    - "pagination_for_lists"
+    - "stable_resource_naming"
+  security:
+    - "least_privilege"
+    - "defense_in_depth"
+    - "secure_by_default"
+    - "secrets_never_in_source"
+    - "auditability_for_sensitive_actions"
+  testing:
+    - "testable_units"
+    - "contract_tests_for_apis"
+    - "integration_tests_for_boundaries"
+    - "migration_tests"
+    - "no_task_done_without_tests"
+    - "reproducible_test_commands"
+  operations:
+    - "observable_by_default"
+    - "health_checks_required"
+    - "structured_logging"
+    - "safe_failure_modes"
+    - "recovery_documented"
+    - "deployment_steps_reproducible"
+  documentation:
+    - "source_grounded"
+    - "machine_readable"
+    - "self_contained"
+    - "no_unstated_assumptions"
+    - "no_vague_language"
+    - "every_requirement_traceable"
+    - "every_task_has_done_when"
+
+done_definition:
+  for_specification_document:
+    done_when:
+      - "document_has_matching_json_schema"
+      - "all_required_fields_are_present"
+      - "all_product_behavior_is_owner_approved_or_marked_as_open_decision"
+      - "all_technical_claims_are_researchable_or_source_grounded"
+      - "all_ambiguous_terms_are_removed_or_defined"
+      - "document_can_be_consumed_by_llm_without_external_context"
+  for_implementation_task:
+    done_when:
+      - "specified_files_created_or_modified"
+      - "specified_behavior_implemented"
+      - "api_contracts_respected"
+      - "database_changes_applied_if_required"
+      - "unit_tests_added_or_updated"
+      - "integration_tests_added_or_updated_when_boundary_is_touched"
+      - "verification_commands_pass"
+      - "no_undocumented_assumptions_introduced"
+
+open_decisions:
+  - id: "OD-001"
+    topic: "Route namespace standard"
+    status: "open"
+  - id: "OD-002"
+    topic: "Multi-tenancy data isolation model"
+    status: "open"
+  - id: "OD-003"
+    topic: "Platform and tenant authorization model"
+    status: "open"
+  - id: "OD-004"
+    topic: "Payment, POS, and fiscal scope"
+    status: "open"
+  - id: "OD-005"
+    topic: "ESP32 device identity model"
+    status: "open"
+  - id: "OD-006"
+    topic: "Public customer session model"
+    status: "open"
+  - id: "OD-007"
+    topic: "Admin panel application and deployment split"
+    status: "open"
+  - id: "OD-008"
+    topic: "Station and order routing model"
+    status: "open"
+  - id: "OD-009"
+    topic: "Full module inventory"
+    status: "open"
+  - id: "OD-010"
+    topic: "Architecture style decision"
+    status: "open"
