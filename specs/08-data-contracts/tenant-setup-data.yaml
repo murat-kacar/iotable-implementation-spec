@@ -10,10 +10,11 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define tenant setup database ownership, tenant database isolation, setup entities, table/station/menu/device/staff invite data contracts, tenant asset records, and forbidden cross-tenant data behavior."
+  rule: "Define tenant setup database ownership, tenant database isolation, setup entities, tenant staff identity tables, table/station/menu/device/staff invite data contracts, tenant asset records, and forbidden cross-tenant data behavior."
   applies_to:
     - "tenant_database"
     - "tenant_setup_console"
+    - "tenant_staff_identity"
     - "tenant_initial_configuration"
     - "tenant_operations_activation"
     - "tenant_data_isolation"
@@ -21,7 +22,7 @@ purpose:
 
 isolation_principle:
   model: "database_per_tenant"
-  rule: "All tenant operational and setup data MUST be stored only in the assigned tenant database."
+  rule: "All tenant operational, setup, and staff identity data MUST be stored only in the assigned tenant database."
   platform_database_name: "iotable_platform"
   tenant_database_pattern: "iotable_tenant_{tenantSlug}"
   tenant_id_filter_based_isolation_allowed: false
@@ -32,6 +33,7 @@ isolation_principle:
     - "Each tenant MUST have a dedicated PostgreSQL database."
     - "Tenant isolation MUST be enforced by database boundary, not by tenant_id filtering inside shared tenant tables."
     - "Tenant operational data MUST NOT be stored in the platform database."
+    - "Tenant staff identity data MUST NOT be stored in the platform database."
     - "A tenant runtime context MUST resolve exactly one tenant database connection."
     - "A request resolved for one tenant MUST NOT query or mutate another tenant database."
     - "Cross-tenant transactions are forbidden."
@@ -51,6 +53,8 @@ platform_database_boundary:
   does_not_own:
     - "tenant_profile"
     - "tenant_setup_state"
+    - "tenant_users"
+    - "tenant_user_roles"
     - "tables"
     - "stations"
     - "menu_categories"
@@ -67,6 +71,7 @@ platform_database_boundary:
   rules:
     - "Platform database MAY store tenant lifecycle metadata and tenant database registry data."
     - "Platform database MUST NOT store tenant setup or tenant operational entities."
+    - "Platform database MUST NOT store tenant staff identity records."
     - "Platform database MUST NOT store tenant image asset records."
     - "Platform database MUST NOT store ESP32 device secrets or firmware configuration."
 
@@ -74,6 +79,8 @@ tenant_database_boundary:
   owns:
     - "tenant_profile"
     - "tenant_setup_state"
+    - "tenant_users"
+    - "tenant_user_roles"
     - "tables"
     - "stations"
     - "menu_categories"
@@ -93,9 +100,9 @@ tenant_database_boundary:
     tenant_id_column_for_isolation: "forbidden"
     rationale: "Tenant database identity is already determined by the resolved database connection."
   rules:
-    - "Tenant setup tables MUST be created inside the tenant database."
-    - "Tenant setup tables SHOULD NOT include tenant_id for isolation."
-    - "Tenant setup tables MUST rely on tenant database boundary for tenant isolation."
+    - "Tenant setup and identity tables MUST be created inside the tenant database."
+    - "Tenant setup and identity tables SHOULD NOT include tenant_id for isolation."
+    - "Tenant setup and identity tables MUST rely on tenant database boundary for tenant isolation."
     - "Tenant database schema version MUST be tracked per tenant database."
 
 common_columns:
@@ -154,7 +161,7 @@ tables:
       completed_steps_json: "jsonb_required_default_empty_array"
       activation_status: "enum_required"
       activated_at_utc: "timestamptz_nullable"
-      activated_by_user_id: "uuid_nullable"
+      activated_by_user_id: "uuid_nullable_fk_tenant_users"
       last_completed_step: "text_nullable"
       created_at_utc: "timestamptz_required"
       updated_at_utc: "timestamptz_required"
@@ -167,6 +174,64 @@ tables:
       - "active"
     constraints:
       - "single_row_guard"
+
+  tenant_users:
+    ownership: "tenant_database"
+    purpose: "Stores tenant-scoped staff user identity records."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      display_name: "text_required"
+      email: "citext_required"
+      normalized_email: "citext_required"
+      password_hash: "text_required"
+      status: "enum_required"
+      two_factor_enabled: "boolean_required_default_false"
+      email_confirmed: "boolean_required_default_true_after_invite_activation"
+      activated_at_utc: "timestamptz_nullable"
+      disabled_at_utc: "timestamptz_nullable"
+      disabled_by_user_id: "uuid_nullable_fk_tenant_users"
+      last_login_at_utc: "timestamptz_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "active"
+      - "disabled"
+    unique_constraints:
+      - "ux_tenant_users_active_normalized_email"
+    constraints:
+      - "duplicate_active_email_within_tenant_forbidden"
+      - "same_email_across_different_tenant_databases_allowed"
+      - "password_hash_required"
+      - "plaintext_password_forbidden"
+      - "hard_delete_forbidden_initial_version"
+
+  tenant_user_roles:
+    ownership: "tenant_database"
+    purpose: "Stores fixed tenant role assignments for tenant staff users."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      user_id: "uuid_required_fk_tenant_users"
+      role: "enum_required"
+      assigned_by_user_id: "uuid_nullable_fk_tenant_users"
+      assigned_at_utc: "timestamptz_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_roles:
+      - "tenant_owner"
+      - "tenant_admin"
+      - "tenant_manager"
+      - "cashier"
+      - "floor_staff"
+      - "station_operator"
+      - "accountant"
+    unique_constraints:
+      - "ux_tenant_user_roles_user_role"
+    constraints:
+      - "roles_must_use_fixed_tenant_role_catalog"
+      - "platform_roles_forbidden"
+      - "tenant_owner_role_not_assignable_from_staff_invite"
 
   tenant_assets:
     ownership: "tenant_database"
@@ -182,7 +247,7 @@ tables:
       width_px: "integer_nullable"
       height_px: "integer_nullable"
       status: "enum_required"
-      created_by_user_id: "uuid_required"
+      created_by_user_id: "uuid_required_fk_tenant_users"
       created_at_utc: "timestamptz_required"
       updated_at_utc: "timestamptz_required"
     allowed_asset_types:
@@ -336,7 +401,7 @@ tables:
       firmware_config_version: "integer_required"
       firmware_generated_at_utc: "timestamptz_required"
       firmware_downloaded_at_utc: "timestamptz_nullable"
-      firmware_downloaded_by_user_id: "uuid_nullable"
+      firmware_downloaded_by_user_id: "uuid_nullable_fk_tenant_users"
       status: "enum_required"
       last_seen_at_utc: "timestamptz_nullable"
       display_status: "text_nullable"
@@ -366,6 +431,7 @@ tables:
       id: "uuid"
       display_name: "text_required"
       email: "citext_required"
+      normalized_email: "citext_required"
       phone: "text_nullable"
       role: "enum_required"
       station_id: "uuid_nullable_fk_stations"
@@ -373,7 +439,8 @@ tables:
       status: "enum_required"
       expires_at_utc: "timestamptz_required"
       accepted_at_utc: "timestamptz_nullable"
-      created_by_user_id: "uuid_required"
+      accepted_user_id: "uuid_nullable_fk_tenant_users"
+      created_by_user_id: "uuid_required_fk_tenant_users"
       created_at_utc: "timestamptz_required"
       updated_at_utc: "timestamptz_required"
     allowed_roles:
@@ -393,6 +460,7 @@ tables:
       - "platform_roles_not_invitable_from_tenant_setup"
       - "invite_token_hash_required"
       - "plaintext_invite_token_forbidden"
+      - "accepted_invite_links_to_tenant_user"
 
 activation_gate_queries:
   rules:
@@ -404,6 +472,15 @@ activation_gate_queries:
     - "Activation gate queries MUST verify at least one active menu category."
     - "Activation gate queries MUST verify at least one active orderable menu item."
     - "Activation gate queries MUST verify every active orderable menu item has price, image, and active station routing."
+
+identity_data_security:
+  rules:
+    - "Tenant users MUST be stored in the resolved tenant database."
+    - "Tenant user roles MUST be stored in the resolved tenant database."
+    - "The same normalized email MAY exist in different tenant databases."
+    - "The same tenant database MUST NOT contain duplicate active users with the same normalized email."
+    - "Password plaintext MUST NOT be stored."
+    - "Tenant staff users MUST NOT be hard-deleted in the initial product version."
 
 firmware_data_security:
   rules:
@@ -423,17 +500,22 @@ asset_data_security:
 forbidden_behavior:
   - "shared_tenant_database_with_tenant_id_filter_isolation"
   - "tenant_operational_data_in_platform_database"
+  - "tenant_staff_identity_in_platform_database"
   - "cross_tenant_query"
   - "cross_tenant_transaction"
   - "platform_database_storing_menu_items"
   - "platform_database_storing_orders"
   - "platform_database_storing_table_devices"
   - "platform_database_storing_tenant_assets"
+  - "platform_database_storing_tenant_users"
+  - "platform_database_storing_tenant_user_roles"
   - "platform_database_storing_device_secret_hashes"
   - "tenant_setup_tables_using_tenant_id_as_primary_isolation"
   - "activation_gate_counting_system_test_tables"
   - "table_without_qr_device_customer_self_ordering_enabled"
   - "menu_item_image_asset_outside_resolved_tenant_database"
+  - "duplicate_active_email_within_same_tenant"
+  - "plaintext_password_persistence"
   - "plaintext_device_secret_persistence"
   - "plaintext_invite_token_persistence"
 
@@ -446,6 +528,8 @@ done_when:
   - "common_columns_are_defined"
   - "tenant_profile_table_is_defined"
   - "tenant_setup_state_table_is_defined"
+  - "tenant_users_table_is_defined"
+  - "tenant_user_roles_table_is_defined"
   - "tenant_assets_table_is_defined"
   - "tables_table_is_defined"
   - "stations_table_is_defined"
@@ -454,6 +538,7 @@ done_when:
   - "table_devices_table_is_defined"
   - "staff_invites_table_is_defined"
   - "activation_gate_queries_are_defined"
+  - "identity_data_security_is_defined"
   - "firmware_data_security_is_defined"
   - "asset_data_security_is_defined"
   - "forbidden_data_behavior_is_defined"
