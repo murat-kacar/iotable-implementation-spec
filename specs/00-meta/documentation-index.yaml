@@ -168,6 +168,10 @@ specification_sections:
         path: "specs/08-data-contracts/platform-data.yaml"
         schema_file: "schemas/08-data-contracts/platform-data.schema.json"
         status: "draft"
+      - id: "08-data-contracts.tenant-setup-data"
+        path: "specs/08-data-contracts/tenant-setup-data.yaml"
+        schema_file: "schemas/08-data-contracts/tenant-setup-data.schema.json"
+        status: "draft"
 
   - id: "09-realtime-device-contracts"
     path: "specs/09-realtime-device-contracts"
