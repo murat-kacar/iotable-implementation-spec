@@ -108,18 +108,18 @@ research_policy:
 document_final_state_policy:
   rule: "Every specification document MUST be written as the current final form of the system."
   prohibited:
-    - "historical_references"
-    - "legacy_references"
-    - "migration_notes_from_previous_documentation"
+    - "chronology_based_wording"
+    - "rename_history_wording"
+    - "transition_wording"
     - "patch_language"
     - "temporary_fix_language"
-    - "backward_compatibility_notes_unless_part_of_current_product_behavior"
+    - "external_context_dependency"
   required:
     - "self_contained_current_state"
     - "direct_final_wording"
-    - "no_reference_to_prior_names_or_prior_versions"
+    - "current_names_only"
     - "no_changelog_style_requirements"
-  rule_detail: "Even documentation corrections MUST be applied as if the corrected version was the only version ever written."
+  rule_detail: "Corrections MUST be applied directly as final wording."
 
 format_policy:
   source_format: "yaml"
@@ -253,7 +253,7 @@ engineering_principles:
     - "testable_units"
     - "contract_tests_for_apis"
     - "integration_tests_for_boundaries"
-    - "migration_tests"
+    - "database_schema_change_tests"
     - "no_task_done_without_tests"
     - "reproducible_test_commands"
   operations:
