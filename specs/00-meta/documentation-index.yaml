@@ -190,7 +190,11 @@ specification_sections:
     schema_path: "schemas/13-security-compliance"
     purpose: "Defines security constraints, threat controls, auditability, data protection, and compliance boundaries."
     required: true
-    documents: []
+    documents:
+      - id: "13-security-compliance.customer-access-security"
+        path: "specs/13-security-compliance/customer-access-security.yaml"
+        schema_file: "schemas/13-security-compliance/customer-access-security.schema.json"
+        status: "draft"
 
   - id: "14-ui-ux-system"
     path: "specs/14-ui-ux-system"
@@ -222,8 +226,5 @@ schema_policy:
 
 open_items:
   - id: "IDX-001"
-    topic: "Resolve customer session and QR membership model."
-    status: "open"
-  - id: "IDX-002"
     topic: "Define concrete backend solution and project folder structure."
     status: "open"
