@@ -123,6 +123,10 @@ specification_sections:
         path: "specs/05-identity-access/permission-catalog.yaml"
         schema_file: "schemas/05-identity-access/permission-catalog.schema.json"
         status: "draft"
+      - id: "05-identity-access.tenant-staff-identity"
+        path: "specs/05-identity-access/tenant-staff-identity.yaml"
+        schema_file: "schemas/05-identity-access/tenant-staff-identity.schema.json"
+        status: "draft"
 
   - id: "06-application-surfaces"
     path: "specs/06-application-surfaces"
