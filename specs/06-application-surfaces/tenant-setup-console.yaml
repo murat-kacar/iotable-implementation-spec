@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
+  rule: "Define the tenant setup console, guided setup flow, default tenant seed tables and station, operation activation requirements, business profile defaults, operating defaults, and setup ownership rules."
   applies_to:
     - "tenant_setup_console"
     - "tenant_owner_activation"
@@ -99,6 +99,74 @@ operating_defaults:
     - "Opening hours MUST be optional."
     - "Service charge MUST be optional."
 
+table_model:
+  canonical_identifier: "table_id"
+  tenant_visible_identifier: "table_number"
+  table_code: "tenant_visible_unique_code"
+  allowed_types:
+    - "operational"
+    - "system_test"
+  allowed_statuses:
+    - "active"
+    - "disabled"
+  create_fields:
+    required:
+      - "table_number"
+    optional:
+      - "display_name"
+      - "area_or_section"
+      - "seat_capacity"
+  rules:
+    - "table_id MUST be system-generated and used as the canonical technical identifier."
+    - "table_number MUST be unique within a tenant."
+    - "table_number MUST be visible to tenant staff and customers."
+    - "Operational customer tables MUST use type operational."
+    - "Default test tables 000 and 999 MUST use type system_test."
+    - "Disabled tables MUST NOT accept new customer ordering sessions."
+
+station_model:
+  canonical_identifier: "station_id"
+  tenant_visible_identifier: "station_code"
+  allowed_station_types:
+    - "kitchen"
+    - "bar"
+    - "coffee"
+    - "dessert"
+    - "service"
+    - "other"
+  allowed_statuses:
+    - "active"
+    - "disabled"
+  create_fields:
+    required:
+      - "station_code"
+      - "display_name"
+      - "station_type"
+    optional:
+      - "sort_order"
+  rules:
+    - "station_id MUST be system-generated and used as the canonical technical identifier."
+    - "station_code MUST be unique within a tenant."
+    - "display_name MUST be provided for every station."
+    - "station_type MUST use an allowed value."
+    - "Disabled stations MUST NOT receive new station tickets."
+
+default_seed_station:
+  created_for_every_tenant: true
+  source: "tenant_provisioning_seed"
+  station_code: "MAIN"
+  display_name: "Main Station"
+  station_type: "kitchen"
+  status: "active"
+  can_be_renamed: true
+  can_be_disabled_after_another_active_station_exists: true
+  rules:
+    - "Every tenant MUST receive an active MAIN station during tenant provisioning."
+    - "MAIN station MUST be usable for initial menu item routing."
+    - "MAIN station MUST count toward the required minimum active station activation gate."
+    - "Tenant users MAY rename MAIN station."
+    - "Tenant users MAY disable MAIN station only when at least one other active station exists."
+
 setup_steps:
   - id: "business_profile"
     required: true
@@ -131,17 +199,25 @@ setup_steps:
       default_tax_display_mode: "tax_included"
   - id: "tables"
     required: true
-    purpose: "Define customer-facing tables."
+    purpose: "Define customer-facing operational tables."
     required_minimums:
       active_operational_tables: 1
     seeded_defaults:
       - "000"
       - "999"
+    rules:
+      - "Tenant MUST create at least one operational table besides default test tables."
+      - "table_number MUST be unique within the tenant."
   - id: "stations"
     required: true
     purpose: "Define fulfillment stations."
     required_minimums:
       active_stations: 1
+    seeded_defaults:
+      - "MAIN"
+    rules:
+      - "Default MAIN station MUST be available before menu item creation."
+      - "Tenant MAY add additional stations."
   - id: "menu_categories"
     required: true
     purpose: "Define menu grouping."
@@ -227,6 +303,7 @@ operations_activation_gates:
     - "service_charge_configured"
   rules:
     - "Default test tables 000 and 999 MUST NOT count as active operational tables for activation gates."
+    - "Default MAIN station MUST count as an active station for activation gates."
     - "Operations activation MUST fail when there is no active operational table besides default test tables."
     - "Operations activation MUST fail when no active station exists."
     - "Operations activation MUST fail when no active orderable menu item exists."
@@ -257,6 +334,9 @@ forbidden_behavior:
   - "tenant_initial_service_mode_pickup"
   - "tenant_initial_service_mode_takeaway"
   - "tax_display_mode_implying_fiscal_support"
+  - "tenant_disabling_MAIN_station_without_another_active_station"
+  - "duplicate_table_number_within_tenant"
+  - "duplicate_station_code_within_tenant"
 
 open_decisions: []
 
@@ -265,6 +345,9 @@ done_when:
   - "guided_setup_flow_is_defined"
   - "business_profile_defaults_are_defined"
   - "operating_defaults_are_defined"
+  - "table_model_is_defined"
+  - "station_model_is_defined"
+  - "default_seed_station_is_defined"
   - "setup_steps_are_defined"
   - "default_seed_tables_are_defined"
   - "operations_activation_gates_are_defined"
