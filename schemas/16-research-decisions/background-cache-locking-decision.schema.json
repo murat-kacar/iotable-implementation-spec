@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/16-research-decisions/background-cache-locking-decision.schema.json",
+  "title": "IoTable Background Jobs, Cache, and Locking Decision Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "selected_technologies",
+    "background_job_decision",
+    "cache_decision",
+    "locking_decision",
+    "integration_rules",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "selected_technologies": { "$ref": "#/$defs/object_record" },
+    "background_job_decision": { "$ref": "#/$defs/object_record" },
+    "cache_decision": { "$ref": "#/$defs/object_record" },
+    "locking_decision": { "$ref": "#/$defs/object_record" },
+    "integration_rules": { "type": "array", "items": { "$ref": "#/$defs/rule_record" } },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "open_decisions": { "type": "array" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "16-research-decisions.background-cache-locking-decision" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/16-research-decisions/background-cache-locking-decision.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^BCL-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
