@@ -1,0 +1,221 @@
+document:
+  id: "04-tenancy.tenant-resolution"
+  title: "IoTable Tenant Resolution"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/04-tenancy/tenant-resolution.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant domain policy, tenant resolution from host subdomain, tenant database context creation, tenant status handling, connection resolution, and forbidden cross-tenant behavior."
+  applies_to:
+    - "tenant_internal_api"
+    - "tenant_staff_identity_api"
+    - "tenant_setup_console"
+    - "tenant_web"
+    - "customer_menu_routes"
+    - "device_websocket_routes"
+    - "tenant_database_isolation"
+
+canonical_domains:
+  platform_domain: "platform.iotables.net"
+  tenant_domain_pattern: "{tenant}.iotables.net"
+  custom_tenant_domains_supported: false
+  custom_tenant_domains_future_scope: false
+  examples:
+    platform: "platform.iotables.net"
+    tenant: "demo.iotables.net"
+  rules:
+    - "Platform control plane MUST use platform.iotables.net."
+    - "Tenant applications MUST use {tenant}.iotables.net."
+    - "Tenant resolution MUST be based on the request host."
+    - "Restaurant-owned custom domains such as restoranadi.com MUST NOT be supported."
+    - "Customer-facing routes, tenant staff routes, tenant APIs, and device WebSocket routes MUST use the canonical tenant domain."
+    - "Custom domain DNS ownership verification, custom TLS certificate lifecycle, and tenant-owned host routing are out of scope."
+
+tenant_resolution_model:
+  source: "host_subdomain"
+  platform_lookup_database: "iotable_platform"
+  platform_lookup_table: "tenant_domain_registry"
+  resolved_context_fields:
+    - "tenant_id"
+    - "tenant_slug"
+    - "tenant_domain"
+    - "tenant_status"
+    - "tenant_database_name"
+    - "tenant_database_connection_ref"
+    - "tenant_schema_version"
+  rules:
+    - "TenantContext MUST be resolved before executing any tenant route."
+    - "TenantContext MUST be resolved from the trusted request host only."
+    - "Client-provided tenant_id MUST NOT be used for tenant resolution."
+    - "Client-provided tenant slug in request body, query string, or headers MUST NOT override host-based tenant resolution."
+    - "Tenant database connection MUST be selected from the resolved TenantContext."
+    - "Tenant routes MUST NOT execute without a resolved TenantContext."
+
+resolution_flow:
+  steps:
+    - step: 1
+      id: "read_request_host"
+      rule: "Read normalized request host from trusted server request metadata."
+    - step: 2
+      id: "classify_host"
+      rule: "Classify host as platform domain, tenant domain, or invalid domain."
+    - step: 3
+      id: "extract_tenant_slug"
+      rule: "For tenant domains, extract the tenant slug from {tenant}.iotables.net."
+    - step: 4
+      id: "lookup_tenant_domain_registry"
+      rule: "Lookup tenant slug/domain in platform tenant_domain_registry."
+    - step: 5
+      id: "validate_tenant_status"
+      rule: "Validate tenant lifecycle status before allowing tenant route execution."
+    - step: 6
+      id: "resolve_tenant_database"
+      rule: "Resolve tenant database name and connection reference from platform tenant database registry."
+    - step: 7
+      id: "create_tenant_context"
+      rule: "Create immutable TenantContext for the request."
+    - step: 8
+      id: "execute_tenant_pipeline"
+      rule: "Execute tenant API/auth/websocket pipeline only with the resolved TenantContext."
+  failure_results:
+    invalid_domain: "404 invalid_domain"
+    tenant_not_found: "404 tenant_not_found"
+    tenant_not_active: "tenant_status_specific_response"
+    tenant_database_unavailable: "503 tenant_database_unavailable"
+
+status_behavior:
+  statuses:
+    provisioning:
+      tenant_api: "unavailable"
+      customer_routes: "blocked"
+      staff_login: "blocked"
+      device_websocket: "blocked"
+      response: "503 tenant_provisioning"
+    active:
+      tenant_api: "available"
+      customer_routes: "available"
+      staff_login: "available"
+      device_websocket: "available"
+      response: "normal"
+    suspended:
+      tenant_api: "blocked"
+      customer_routes: "blocked"
+      staff_login: "blocked"
+      device_websocket: "blocked"
+      tenant_owner_message_page: true
+      platform_support_access: "platform_only"
+      response: "423 tenant_suspended"
+    deactivated:
+      tenant_api: "blocked"
+      customer_routes: "blocked"
+      staff_login: "blocked"
+      device_websocket: "blocked"
+      response: "410 tenant_deactivated"
+    provisioning_failed:
+      tenant_api: "unavailable"
+      customer_routes: "blocked"
+      staff_login: "blocked"
+      device_websocket: "blocked"
+      response: "503 tenant_provisioning_failed"
+  rules:
+    - "Only active tenants MAY serve customer routes, staff login, tenant APIs, and device WebSocket connections."
+    - "Suspended tenants MUST block customer routes, staff login, tenant APIs, and device WebSocket connections."
+    - "Suspended tenants MAY show a tenant owner message page."
+    - "Platform support access to tenant lifecycle metadata MUST occur from platform control plane only."
+
+connection_resolution:
+  model: "database_per_tenant"
+  connection_source: "platform_tenant_database_registry"
+  connection_secret_storage: "server_secret_store_or_encrypted_config"
+  connection_cache_allowed: true
+  cache_key: "tenant_id"
+  cache_must_respect_tenant_status: true
+  cache_invalidation_required_for:
+    - "tenant_suspended"
+    - "tenant_reactivated"
+    - "tenant_deactivated"
+    - "tenant_database_connection_rotated"
+    - "tenant_schema_job_completed"
+  rules:
+    - "Tenant database connection MUST come from platform tenant database registry or trusted server secret configuration."
+    - "Tenant database connection MUST NOT be accepted from client input."
+    - "Connection cache MAY be used for performance."
+    - "Connection cache MUST be invalidated when tenant status or database connection reference changes."
+    - "Resolved tenant database connection MUST target exactly one tenant database."
+
+security_rules:
+  tenant_context_required_for_tenant_routes: true
+  tenant_db_resolved_per_request: true
+  client_supplied_tenant_id_allowed: false
+  tenant_id_header_trusted: false
+  cross_tenant_context_switch_allowed: false
+  custom_domain_routing_allowed: false
+  rules:
+    - "TenantContext MUST be immutable after creation for a request."
+    - "Tenant routes MUST NOT switch TenantContext during request execution."
+    - "Tenant routes MUST NOT query multiple tenant databases in one request."
+    - "Tenant staff authentication MUST use the resolved tenant database."
+    - "Customer session and QR flows MUST use the resolved tenant database."
+    - "ESP32 device WebSocket authentication MUST use the resolved tenant database."
+
+platform_vs_tenant_route_boundary:
+  platform_routes:
+    domain: "platform.iotables.net"
+    may_access:
+      - "platform_database"
+      - "tenant_lifecycle_metadata"
+      - "tenant_database_registry"
+      - "provisioning_jobs"
+      - "schema_jobs"
+    must_not_access_for_runtime_operations:
+      - "tenant_menu_items"
+      - "tenant_orders"
+      - "tenant_customer_sessions"
+      - "tenant_table_devices"
+  tenant_routes:
+    domain_pattern: "{tenant}.iotables.net"
+    may_access:
+      - "resolved_tenant_database"
+    may_lookup_before_context_creation:
+      - "tenant_domain_registry"
+      - "tenant_database_registry"
+    must_not_access:
+      - "another_tenant_database"
+      - "platform_control_plane_mutation"
+  rules:
+    - "Platform routes and tenant routes MUST remain domain-separated."
+    - "Tenant routes MAY use platform registry only to resolve TenantContext."
+    - "Tenant routes MUST NOT mutate platform lifecycle records."
+
+forbidden_behavior:
+  - "custom_tenant_domain_support"
+  - "tenant_owned_domain_routing"
+  - "restaurant_domain_routing"
+  - "tenant_resolution_from_request_body"
+  - "tenant_resolution_from_untrusted_header"
+  - "tenant_resolution_from_client_supplied_tenant_id"
+  - "tenant_route_without_tenant_context"
+  - "tenant_context_switch_during_request"
+  - "tenant_route_querying_multiple_tenant_databases"
+  - "tenant_api_served_from_platform_domain"
+  - "platform_control_plane_served_from_tenant_domain"
+  - "suspended_tenant_customer_route_available"
+  - "suspended_tenant_staff_login_available"
+  - "suspended_tenant_device_websocket_available"
+
+open_decisions: []
+
+done_when:
+  - "canonical_domains_are_defined"
+  - "tenant_resolution_model_is_defined"
+  - "resolution_flow_is_defined"
+  - "tenant_status_behavior_is_defined"
+  - "connection_resolution_is_defined"
+  - "security_rules_are_defined"
+  - "platform_vs_tenant_route_boundary_is_defined"
+  - "forbidden_tenant_resolution_behavior_is_defined"
