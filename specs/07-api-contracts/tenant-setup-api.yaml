@@ -111,6 +111,8 @@ endpoints:
       request: "CreateTableRequest"
       response: "TableResponse"
       idempotency_required: true
+      rules:
+        - "If table creation generates firmware immediately, the actor MUST also have tenant.firmware.generate."
     - id: "TSA-102"
       method: "PATCH"
       path: "/tables/{tableId}"
@@ -121,24 +123,26 @@ endpoints:
     - id: "TSA-103"
       method: "POST"
       path: "/tables/{tableId}/firmware/generate"
-      required_permission: "tenant.tables.update"
+      required_permission: "tenant.firmware.generate"
       purpose: "Generate or regenerate table-specific ESP32 firmware for a table with QR device enabled."
       request: "GenerateFirmwareRequest"
       response: "FirmwareGenerationResponse"
       idempotency_required: true
       rules:
+        - "Firmware generation MUST be limited to tenant_owner and tenant_admin through fixed role-permission bundles."
         - "Firmware regeneration MUST revoke old device secret."
         - "Firmware generation MUST be audited."
     - id: "TSA-104"
       method: "POST"
       path: "/tables/{tableId}/firmware/download"
-      required_permission: "tenant.tables.update"
+      required_permission: "tenant.firmware.download"
       purpose: "Download the table-specific firmware artifact as a secret, audited, non-cacheable response."
       request: "DownloadFirmwareRequest"
       response: "FirmwareDownloadResponse"
       idempotency_required: true
       cache_policy: "no_store"
       rules:
+        - "Firmware download MUST be limited to tenant_owner and tenant_admin through fixed role-permission bundles."
         - "Firmware download MUST use POST, not GET."
         - "Firmware download MUST be audited."
         - "Firmware artifact MUST be treated as a secret."
@@ -316,6 +320,9 @@ forbidden_behavior:
   - "tenant_setup_api_on_platform_domain"
   - "tenant_setup_api_using_platform_database_for_tenant_operational_data"
   - "tenant_setup_api_cross_tenant_query"
+  - "firmware_generation_authorized_by_table_update_permission_only"
+  - "firmware_download_authorized_by_table_update_permission_only"
+  - "firmware_permission_granted_to_tenant_manager_initial_version"
   - "firmware_download_get_endpoint"
   - "firmware_download_cacheable_response"
   - "plaintext_wifi_credentials_logging"
