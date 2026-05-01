@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/02-system-architecture/frontend-application-split.schema.json",
+  "title": "IoTable Frontend Application Split Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "frontend_stack",
+    "selected_split",
+    "rationale",
+    "isolation_rules",
+    "shared_frontend_packages",
+    "routing_contract",
+    "build_and_deployment",
+    "open_decisions",
+    "forbidden_behavior",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "frontend_stack": { "$ref": "#/$defs/object_record" },
+    "selected_split": { "$ref": "#/$defs/object_record" },
+    "rationale": { "$ref": "#/$defs/object_record" },
+    "isolation_rules": { "type": "array", "items": { "$ref": "#/$defs/rule_record" } },
+    "shared_frontend_packages": { "$ref": "#/$defs/object_record" },
+    "routing_contract": { "$ref": "#/$defs/object_record" },
+    "build_and_deployment": { "$ref": "#/$defs/object_record" },
+    "open_decisions": { "type": "array", "items": { "$ref": "#/$defs/open_decision" } },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "02-system-architecture.frontend-application-split" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/02-system-architecture/frontend-application-split.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^FAS-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "open_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^FAS-OD-[0-9]{3}$" },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    }
+  }
+}
