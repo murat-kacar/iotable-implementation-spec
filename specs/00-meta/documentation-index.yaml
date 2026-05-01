@@ -111,7 +111,11 @@ specification_sections:
     schema_path: "schemas/04-tenancy"
     purpose: "Defines tenant resolution, tenant lifecycle, tenant isolation, provisioning, and tenant context propagation."
     required: true
-    documents: []
+    documents:
+      - id: "04-tenancy.tenant-resolution"
+        path: "specs/04-tenancy/tenant-resolution.yaml"
+        schema_file: "schemas/04-tenancy/tenant-resolution.schema.json"
+        status: "draft"
 
   - id: "05-identity-access"
     path: "specs/05-identity-access"
