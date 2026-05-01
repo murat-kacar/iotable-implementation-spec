@@ -219,7 +219,11 @@ specification_sections:
     schema_path: "schemas/16-research-decisions"
     purpose: "Defines researched technical decisions, accepted recommendations, rejected options, and source-grounded decision records."
     required: true
-    documents: []
+    documents:
+      - id: "16-research-decisions.background-cache-locking-decision"
+        path: "specs/16-research-decisions/background-cache-locking-decision.yaml"
+        schema_file: "schemas/16-research-decisions/background-cache-locking-decision.schema.json"
+        status: "draft"
 
 folder_creation_policy:
   rule: "A specification section folder MAY exist before documents are added. Empty section folders are allowed only as repository structure markers."
@@ -228,10 +232,4 @@ schema_policy:
   rule: "Every YAML specification document MUST have a matching JSON Schema file."
   schema_location_rule: "Schema files MUST mirror specification section paths under the schemas root."
 
-open_items:
-  - id: "IDX-001"
-    topic: "Define concrete background job library selection."
-    status: "open"
-  - id: "IDX-002"
-    topic: "Define concrete cache and distributed lock technology selection."
-    status: "open"
+open_items: []
