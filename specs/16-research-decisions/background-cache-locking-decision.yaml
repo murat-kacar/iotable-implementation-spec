@@ -1,0 +1,132 @@
+document:
+  id: "16-research-decisions.background-cache-locking-decision"
+  title: "IoTable Background Jobs, Cache, and Locking Decision"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/16-research-decisions/background-cache-locking-decision.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the selected background job library, job storage, distributed cache, and distributed locking technologies for IoTable."
+  applies_to:
+    - "IoTable.Worker"
+    - "platform_provisioning_jobs"
+    - "platform_schema_orchestration"
+    - "customer_access_security"
+    - "rate_limiting"
+    - "runtime_coordination"
+
+selected_technologies:
+  background_jobs:
+    library: "Hangfire"
+    storage: "PostgreSQL"
+    host: "IoTable.Worker"
+    dashboard_policy: "disabled_or_platform_owner_only"
+  distributed_cache:
+    technology: "Redis"
+    dotnet_abstraction: "IDistributedCache"
+    package_family: "Microsoft.Extensions.Caching.StackExchangeRedis"
+  distributed_locking:
+    platform_jobs: "PostgreSQL advisory locks"
+    rate_limit_and_ephemeral_coordination: "Redis"
+
+background_job_decision:
+  selected: "Hangfire"
+  storage: "PostgreSQL"
+  used_for:
+    - "tenant_provisioning_jobs"
+    - "tenant_schema_change_jobs"
+    - "maintenance_jobs"
+    - "scheduled_operational_tasks"
+  rules:
+    - "Background jobs MUST execute through IoTable.Worker."
+    - "Hangfire storage MUST use PostgreSQL."
+    - "Provisioning jobs MUST remain resumable and inspectable through platform APIs and platform UI."
+    - "Schema change jobs MUST remain resumable and inspectable through platform APIs and platform UI."
+    - "Hangfire dashboard MUST NOT be publicly exposed."
+    - "If Hangfire dashboard is enabled, it MUST be protected by platform_owner authorization."
+    - "Application-facing job status MUST be represented in IoTable platform tables, not only in Hangfire internal tables."
+  rationale:
+    - "Hangfire is practical for persistent background processing in .NET."
+    - "Hangfire supports fire-and-forget, delayed, recurring, and continuation job workflows needed by IoTable."
+    - "PostgreSQL storage avoids introducing an additional job persistence database."
+    - "IoTable requires operationally visible provisioning and schema job state."
+
+cache_decision:
+  selected: "Redis"
+  abstraction: "IDistributedCache"
+  used_for:
+    - "rate_limit_counters"
+    - "abuse_detection_counters"
+    - "short_lived_customer_access_runtime_state"
+    - "ephemeral_runtime_coordination"
+  not_used_for:
+    - "source_of_truth_data"
+    - "tenant_operational_data"
+    - "platform_audit_log"
+    - "provisioning_job_source_of_truth"
+  rules:
+    - "Redis MUST NOT be the source of truth for platform lifecycle state."
+    - "Redis MUST NOT be the source of truth for tenant operational state."
+    - "Redis MAY store short-lived counters and runtime coordination state."
+    - "Redis entries MUST have explicit TTL unless a documented exception exists."
+    - "Critical state MUST be recoverable without Redis data."
+
+locking_decision:
+  platform_job_locking:
+    selected: "PostgreSQL advisory locks"
+    used_for:
+      - "tenant_provisioning_job_exclusion"
+      - "tenant_schema_change_job_exclusion"
+      - "per_tenant_platform_job_serialisation"
+    rules:
+      - "Platform provisioning and schema jobs MUST use PostgreSQL advisory locks for critical per-tenant execution exclusion."
+      - "Advisory locks MUST be scoped by stable lock keys derived from job type and tenant identifier."
+      - "Critical lock acquisition and state transition MUST be atomic with platform database state checks where applicable."
+      - "The system MUST reject or defer concurrent platform jobs that would mutate the same tenant lifecycle or schema state."
+  ephemeral_locking:
+    selected: "Redis"
+    used_for:
+      - "rate_limit_coordination"
+      - "short_lived_abuse_control"
+      - "non_critical_ephemeral_runtime_coordination"
+    rules:
+      - "Redis locks MUST NOT protect durable platform lifecycle mutations."
+      - "Redis locks MAY protect short-lived abuse-control flows."
+      - "Redis locks MUST use TTL."
+
+integration_rules:
+  - id: "BCL-001"
+    rule: "IoTable.Worker MUST run background jobs outside the HTTP request pipeline."
+  - id: "BCL-002"
+    rule: "Platform job source-of-truth state MUST be stored in IoTable platform tables."
+  - id: "BCL-003"
+    rule: "Hangfire internal tables MUST NOT replace IoTable platform job contract tables."
+  - id: "BCL-004"
+    rule: "Redis MUST be treated as ephemeral infrastructure."
+  - id: "BCL-005"
+    rule: "PostgreSQL advisory locks MUST protect critical platform job concurrency."
+  - id: "BCL-006"
+    rule: "Distributed cache and lock failures MUST fail safely for security-sensitive customer flows."
+
+forbidden_behavior:
+  - "background_jobs_only_inside_IoTable.Api_request_pipeline"
+  - "hangfire_dashboard_publicly_exposed"
+  - "redis_as_source_of_truth_for_platform_state"
+  - "redis_as_source_of_truth_for_tenant_operational_state"
+  - "redis_lock_for_critical_tenant_schema_mutation_without_database_state_guard"
+  - "platform_job_without_concurrency_guard"
+
+open_decisions: []
+
+done_when:
+  - "background_job_library_is_selected"
+  - "background_job_storage_is_selected"
+  - "distributed_cache_is_selected"
+  - "platform_job_locking_is_selected"
+  - "ephemeral_locking_policy_is_defined"
+  - "integration_rules_are_defined"
+  - "forbidden_behavior_is_defined"
