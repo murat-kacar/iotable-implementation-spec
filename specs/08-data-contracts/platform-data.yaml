@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define the platform database contract for platform-owned users, tenant lifecycle, tenant domains, tenant databases, provisioning jobs, schema jobs, settings, audit, and idempotency."
+  rule: "Define the platform database contract for platform-owned users, tenant lifecycle metadata, tenant domains, tenant database registry, provisioning jobs, schema jobs, settings, audit, and idempotency."
   database_name: "iotable_platform"
   database_engine: "PostgreSQL 17"
 
@@ -22,8 +22,12 @@ platform_database_policy:
   soft_delete: false
   audit_strategy: "append_only_platform_audit_log"
   tenant_operational_data_allowed: false
+  tenant_staff_identity_data_allowed: false
+  tenant_owner_activation_invite_storage: "tenant_database"
   rules:
     - "Platform database MUST NOT store tenant operational data."
+    - "Platform database MUST NOT store tenant staff identity records."
+    - "Platform database MUST NOT store tenant owner activation invite token hashes."
     - "Platform database MUST store platform control-plane data only."
     - "Tenant lifecycle MUST be represented by explicit status fields."
     - "Audit records MUST be append-only."
@@ -82,8 +86,8 @@ tables:
       - { name: "id", type: "uuid", nullable: false, primary_key: true }
       - { name: "display_name", type: "text", nullable: false }
       - { name: "slug", type: "text", nullable: false, unique: true }
-      - { name: "status", type: "text", nullable: false, allowed_values: ["draft", "provisioning", "pending_activation", "active", "suspended", "deactivated"] }
-      - { name: "business_type", type: "text", nullable: false, allowed_values: ["cafe", "restaurant", "fast_casual", "food_court", "bar_pub", "other"] }
+      - { name: "status", type: "text", nullable: false, allowed_values: ["draft", "provisioning", "active", "suspended", "deactivated", "provisioning_failed"] }
+      - { name: "business_type", type: "text", nullable: false, allowed_values: ["cafe", "restaurant", "bar", "food_court_vendor", "cloud_kitchen", "other"] }
       - { name: "default_locale", type: "text", nullable: false }
       - { name: "default_currency", type: "text", nullable: false }
       - { name: "timezone", type: "text", nullable: false }
@@ -94,9 +98,13 @@ tables:
     indexes:
       - { name: "ux_tenants_slug", columns: ["slug"], unique: true }
       - { name: "ix_tenants_status", columns: ["status"] }
+    rules:
+      - "Tenant slug MUST be immutable after creation."
+      - "Tenant lifecycle active MUST NOT imply tenant operations active."
+      - "Deactivated tenant lifecycle records are terminal in the initial product version."
 
   - name: "tenant_domains"
-    purpose: "Store tenant domain assignment derived from tenant slug."
+    purpose: "Store canonical tenant domain assignment derived from tenant slug."
     owner_module: "platform_tenant_lifecycle"
     columns:
       - { name: "id", type: "uuid", nullable: false, primary_key: true }
@@ -107,7 +115,10 @@ tables:
       - { name: "updated_at", type: "timestamptz", nullable: false }
     indexes:
       - { name: "ux_tenant_domains_domain", columns: ["domain"], unique: true }
-      - { name: "ux_tenant_domains_primary", columns: ["tenant_id", "is_primary"], unique: false }
+      - { name: "ix_tenant_domains_tenant_id", columns: ["tenant_id"] }
+    rules:
+      - "Tenant domain MUST follow {tenant}.iotables.net."
+      - "Custom tenant domains MUST NOT be stored."
 
   - name: "tenant_databases"
     purpose: "Store tenant database registry metadata."
@@ -124,25 +135,9 @@ tables:
     indexes:
       - { name: "ux_tenant_databases_tenant_id", columns: ["tenant_id"], unique: true }
       - { name: "ux_tenant_databases_database_name", columns: ["database_name"], unique: true }
-
-  - name: "tenant_owner_activation_invites"
-    purpose: "Store tenant owner activation invite records."
-    owner_module: "platform_tenant_lifecycle"
-    columns:
-      - { name: "id", type: "uuid", nullable: false, primary_key: true }
-      - { name: "tenant_id", type: "uuid", nullable: false, references: "tenants.id" }
-      - { name: "owner_full_name", type: "text", nullable: false }
-      - { name: "owner_email", type: "citext", nullable: false }
-      - { name: "owner_phone", type: "text", nullable: true }
-      - { name: "token_hash", type: "text", nullable: false, unique: true }
-      - { name: "status", type: "text", nullable: false, allowed_values: ["pending", "accepted", "expired", "revoked"] }
-      - { name: "expires_at", type: "timestamptz", nullable: false }
-      - { name: "accepted_at", type: "timestamptz", nullable: true }
-      - { name: "created_at", type: "timestamptz", nullable: false }
-      - { name: "updated_at", type: "timestamptz", nullable: false }
-    indexes:
-      - { name: "ux_tenant_owner_activation_invites_token_hash", columns: ["token_hash"], unique: true }
-      - { name: "ix_tenant_owner_activation_invites_tenant_id", columns: ["tenant_id"] }
+    rules:
+      - "Tenant database name MUST be system-generated."
+      - "connection_secret_ref MUST reference external secret storage and MUST NOT contain plaintext credentials."
 
   - name: "tenant_provisioning_jobs"
     purpose: "Store tenant provisioning job records."
@@ -153,7 +148,9 @@ tables:
       - { name: "status", type: "text", nullable: false, allowed_values: ["queued", "running", "failed", "retrying", "completed", "manual_intervention_required"] }
       - { name: "current_step", type: "text", nullable: true }
       - { name: "failed_step", type: "text", nullable: true }
-      - { name: "failure_message", type: "text", nullable: true }
+      - { name: "failure_code", type: "text", nullable: true }
+      - { name: "failure_message_safe", type: "text", nullable: true }
+      - { name: "partial_resources", type: "jsonb", nullable: false }
       - { name: "retry_attempt_count", type: "integer", nullable: false }
       - { name: "started_at", type: "timestamptz", nullable: true }
       - { name: "completed_at", type: "timestamptz", nullable: true }
@@ -162,6 +159,9 @@ tables:
     indexes:
       - { name: "ix_tenant_provisioning_jobs_tenant_id", columns: ["tenant_id"] }
       - { name: "ix_tenant_provisioning_jobs_status", columns: ["status"] }
+    rules:
+      - "Provisioning failures MUST track partial resources."
+      - "Provisioning retry MUST be idempotent and MUST NOT blindly recreate existing resources."
 
   - name: "tenant_provisioning_job_steps"
     purpose: "Store provisioning job step state."
@@ -173,7 +173,7 @@ tables:
       - { name: "status", type: "text", nullable: false, allowed_values: ["pending", "running", "completed", "failed", "skipped"] }
       - { name: "started_at", type: "timestamptz", nullable: true }
       - { name: "completed_at", type: "timestamptz", nullable: true }
-      - { name: "failure_message", type: "text", nullable: true }
+      - { name: "failure_message_safe", type: "text", nullable: true }
       - { name: "created_at", type: "timestamptz", nullable: false }
       - { name: "updated_at", type: "timestamptz", nullable: false }
     indexes:
@@ -203,7 +203,7 @@ tables:
       - { name: "from_schema_version", type: "text", nullable: true }
       - { name: "to_schema_version", type: "text", nullable: true }
       - { name: "status", type: "text", nullable: false, allowed_values: ["queued", "running", "failed", "completed", "skipped"] }
-      - { name: "failure_message", type: "text", nullable: true }
+      - { name: "failure_message_safe", type: "text", nullable: true }
       - { name: "started_at", type: "timestamptz", nullable: true }
       - { name: "completed_at", type: "timestamptz", nullable: true }
       - { name: "created_at", type: "timestamptz", nullable: false }
@@ -270,6 +270,7 @@ tables:
       - { name: "ix_platform_idempotency_keys_expires_at", columns: ["expires_at"] }
 
 forbidden_tables:
+  - "tenant_owner_activation_invites"
   - "restaurant_menus"
   - "restaurant_tables"
   - "restaurant_orders"
@@ -277,12 +278,15 @@ forbidden_tables:
   - "kitchen_station_workflows"
   - "checkout_records"
   - "tenant_staff_operational_records"
+  - "tenant_users"
+  - "tenant_user_roles"
+  - "staff_invites"
 
 constraint_rules:
   - id: "PDC-001"
-    rule: "Tenant slug MUST be globally unique."
+    rule: "Tenant slug MUST be globally unique and immutable after creation."
   - id: "PDC-002"
-    rule: "Tenant domain MUST be globally unique."
+    rule: "Tenant domain MUST be globally unique and follow {tenant}.iotables.net."
   - id: "PDC-003"
     rule: "Tenant database name MUST be globally unique."
   - id: "PDC-004"
@@ -291,6 +295,10 @@ constraint_rules:
     rule: "platform_idempotency_keys MUST prevent duplicate execution of mutation requests with the same idempotency key."
   - id: "PDC-006"
     rule: "connection_secret_ref MUST reference external secret storage and MUST NOT contain plaintext credentials."
+  - id: "PDC-007"
+    rule: "Tenant lifecycle active MUST NOT imply tenant operations active."
+  - id: "PDC-008"
+    rule: "Tenant owner activation invite records MUST be stored in the tenant database, not the platform database."
 
 open_decisions: []
 
