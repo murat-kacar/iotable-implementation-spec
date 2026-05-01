@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define the backend solution, host projects, module project layout, dependency boundaries, and repository folder structure for IoTable."
+  rule: "Define the backend solution, runtime hosts, module project layout, dependency boundaries, and repository folder structure for IoTable."
   applies_to:
     - "backend_application"
     - "modular_monolith"
@@ -23,13 +23,19 @@ backend_stack:
   api_host_framework: "ASP.NET Core"
   database_engine: "PostgreSQL 17"
   orm: "Entity Framework Core"
+  background_jobs: "Hangfire with PostgreSQL storage"
+  distributed_cache: "Redis through IDistributedCache"
+  critical_platform_job_locking: "PostgreSQL advisory locks"
   architecture_style: "modular_monolith"
   module_internal_architecture: "clean_architecture_per_module"
 
 solution_policy:
   one_solution: true
   solution_file: "src/backend/IoTable.sln"
-  one_backend_deployable: true
+  backend_codebase_model: "single_modular_monolith_solution"
+  runtime_hosts:
+    - "IoTable.Api"
+    - "IoTable.Worker"
   api_host_project_required: true
   worker_host_project_required: true
   module_folder_per_business_capability: true
@@ -38,12 +44,18 @@ solution_policy:
   rules:
     - "IoTable backend MUST be implemented as one .NET solution."
     - "IoTable backend MUST use a modular monolith architecture."
+    - "IoTable backend MUST have two runtime host projects: IoTable.Api and IoTable.Worker."
     - "IoTable.Api MUST be the single HTTP API host."
     - "IoTable.Worker MUST be the background job host."
     - "Business capability modules MUST be implemented as separate class library groups."
     - "Each business module SHOULD expose Domain, Application, Infrastructure, and Api projects unless a documented exception exists."
     - "Modules MUST NOT directly mutate another module's owned data."
     - "Cross-module behavior MUST use documented application contracts or in-process domain events."
+
+technology_decision_references:
+  - id: "TDR-001"
+    topic: "Background jobs, cache, and locking"
+    canonical_document: "specs/16-research-decisions/background-cache-locking-decision.yaml"
 
 repository_layout:
   root:
@@ -87,6 +99,8 @@ host_projects:
   - id: "IoTable.Worker"
     path: "src/backend/hosts/IoTable.Worker"
     type: "background_job_host"
+    background_job_library: "Hangfire"
+    background_job_storage: "PostgreSQL"
     responsibilities:
       - "tenant_provisioning_jobs"
       - "tenant_schema_change_jobs"
@@ -96,6 +110,7 @@ host_projects:
       - "IoTable.Worker MUST execute platform-owned background jobs."
       - "IoTable.Worker MUST NOT expose HTTP API endpoints."
       - "IoTable.Worker MUST use module application services or documented job contracts."
+      - "IoTable.Worker MUST use Hangfire with PostgreSQL storage for background processing."
 
 building_blocks:
   - id: "IoTable.BuildingBlocks.Domain"
@@ -126,6 +141,8 @@ building_blocks:
       - "Idempotency infrastructure"
       - "Logging helpers"
       - "Correlation id handling"
+      - "Redis cache abstractions"
+      - "Hangfire registration helpers"
   - id: "IoTable.BuildingBlocks.Api"
     path: "src/backend/building-blocks/IoTable.BuildingBlocks.Api"
     purpose: "Shared API primitives."
@@ -265,6 +282,10 @@ configuration_rules:
     rule: "Secrets MUST NOT be stored in source code or specification examples."
   - id: "BSC-004"
     rule: "Platform and tenant frontend applications MUST NOT be hosted inside backend projects."
+  - id: "BSC-005"
+    rule: "Redis configuration MUST be resolved by host configuration and MUST be treated as ephemeral infrastructure."
+  - id: "BSC-006"
+    rule: "Hangfire configuration MUST be resolved by IoTable.Worker host configuration."
 
 verification_rules:
   required_test_categories:
@@ -285,17 +306,15 @@ forbidden_behavior:
   - "domain_project_depending_on_ef_core"
   - "platform_frontend_inside_backend_host"
   - "tenant_frontend_inside_backend_host"
+  - "redis_as_source_of_truth_for_durable_state"
+  - "hangfire_internal_tables_as_platform_job_source_of_truth"
 
-open_decisions:
-  - id: "BSS-OD-001"
-    topic: "Concrete background job library selection."
-    status: "open"
-  - id: "BSS-OD-002"
-    topic: "Concrete cache and distributed lock technology selection."
-    status: "open"
+open_decisions: []
 
 done_when:
   - "backend_solution_policy_is_defined"
+  - "runtime_hosts_are_defined"
+  - "background_cache_and_locking_decision_is_referenced"
   - "host_projects_are_defined"
   - "building_blocks_are_defined"
   - "module_project_pattern_is_defined"
