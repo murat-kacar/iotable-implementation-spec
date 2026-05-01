@@ -1,0 +1,302 @@
+document:
+  id: "07-api-contracts.tenant-staff-identity-api"
+  title: "IoTable Tenant Staff Identity API Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/07-api-contracts/tenant-staff-identity-api.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant staff identity API contracts for invite validation, invite activation, login, logout, current user, password flows, staff user administration, role assignment, disable behavior, and tenant-domain-only authentication."
+  applies_to:
+    - "tenant_staff_identity"
+    - "tenant_staff_activation"
+    - "tenant_authentication"
+    - "tenant_internal_api"
+    - "tenant_staff_admin"
+
+api_policy:
+  tenant_domain_only: true
+  platform_domain_for_tenant_staff_login: false
+  tenant_resolution: "subdomain"
+  database_context: "resolved_tenant_database_only"
+  authentication_model: "tenant_scoped_staff_authentication"
+  authorization_model: "permission_based"
+  hard_delete_endpoint_available: false
+  rules:
+    - "Tenant staff identity APIs MUST be served only from tenant domains."
+    - "Tenant staff identity APIs MUST NOT be served from platform.iotables.net."
+    - "Tenant staff authentication MUST resolve exactly one tenant database from the request subdomain."
+    - "Tenant staff identity APIs MUST NOT query or mutate another tenant database."
+    - "Tenant staff identity APIs MUST NOT store tenant identity data in the platform database."
+    - "Tenant staff identity APIs MUST enforce permissions, not role names."
+    - "No hard-delete staff endpoint MUST exist in the initial product version."
+
+route_families:
+  public_tenant_auth: "https://{tenant}.iotables.net/api/auth/**"
+  internal_staff_admin: "https://{tenant}.iotables.net/api/internal/staff/**"
+  rules:
+    - "Invite validation, invite activation, login, logout, current user, and password endpoints belong to api/auth."
+    - "Staff user listing, update, disable, and role assignment endpoints belong to api/internal/staff."
+
+common_contract_rules:
+  id_format: "uuid"
+  timestamp_format: "iso_8601_utc"
+  request_body_format: "json"
+  response_body_format: "json"
+  error_format: "problem_details"
+  token_storage: "hash_only"
+  idempotency:
+    required_for:
+      - "invite_activation"
+      - "password_reset"
+      - "staff_disable"
+      - "role_assignment"
+  rules:
+    - "Validation errors MUST use ProblemDetails."
+    - "Invite token plaintext MUST NOT be logged."
+    - "Password plaintext MUST NOT be logged."
+    - "Password hashes MUST NOT be returned by any API."
+    - "Two-factor secrets MUST NOT be returned by any API except explicit future setup flows."
+
+endpoints:
+  invite_activation:
+    - id: "TSI-001"
+      method: "GET"
+      path: "/auth/invites/validate"
+      authentication_required: false
+      query_parameters:
+        - "token"
+      purpose: "Validate a staff invite token and return non-secret invite metadata needed for activation UI."
+      response: "ValidateStaffInviteResponse"
+      rules:
+        - "Invite validation MUST check token hash, invite status, expiration, and tenant database context."
+        - "Invite validation MUST NOT activate the user."
+        - "Invite validation MUST NOT return invite_token_hash."
+    - id: "TSI-002"
+      method: "POST"
+      path: "/auth/invites/activate"
+      authentication_required: false
+      purpose: "Activate a tenant staff user from a valid one-time invite token and initial password."
+      request: "ActivateStaffInviteRequest"
+      response: "ActivateStaffInviteResponse"
+      idempotency_required: true
+      rules:
+        - "Invite activation MUST require a valid unexpired pending invite token."
+        - "Invite activation MUST create a tenant_users row in the resolved tenant database."
+        - "Invite activation MUST create tenant_user_roles assignment from invite role."
+        - "Invite activation MUST mark the invite accepted and link accepted_user_id."
+        - "Invite activation MUST reject tenant_owner and platform roles."
+        - "Invite activation MUST reject duplicate active normalized email within the same tenant database."
+
+  session_authentication:
+    - id: "TSI-100"
+      method: "POST"
+      path: "/auth/login"
+      authentication_required: false
+      purpose: "Authenticate a tenant staff user against the resolved tenant database."
+      request: "TenantStaffLoginRequest"
+      response: "TenantStaffLoginResponse"
+      rules:
+        - "Login MUST use tenant database resolved from subdomain."
+        - "Login MUST reject disabled users."
+        - "Login MUST produce tenant-scoped claims and permissions."
+        - "Login MUST NOT authenticate platform users."
+    - id: "TSI-101"
+      method: "POST"
+      path: "/auth/logout"
+      authentication_required: true
+      purpose: "End the current tenant staff session."
+      response: "LogoutResponse"
+    - id: "TSI-102"
+      method: "GET"
+      path: "/auth/me"
+      authentication_required: true
+      purpose: "Return the current authenticated tenant staff user, roles, and effective permissions."
+      response: "CurrentTenantStaffUserResponse"
+      rules:
+        - "Current user response MUST NOT include password hash."
+        - "Current user response MUST return tenant-scoped roles and effective permissions."
+
+  password:
+    - id: "TSI-200"
+      method: "POST"
+      path: "/auth/password/forgot"
+      authentication_required: false
+      purpose: "Request a password reset email for a tenant staff user in the resolved tenant database."
+      request: "ForgotPasswordRequest"
+      response: "ForgotPasswordResponse"
+      rules:
+        - "Response MUST avoid disclosing whether an email exists."
+        - "Reset token MUST be stored hash-only."
+    - id: "TSI-201"
+      method: "POST"
+      path: "/auth/password/reset"
+      authentication_required: false
+      purpose: "Reset password using a valid password reset token."
+      request: "ResetPasswordRequest"
+      response: "ResetPasswordResponse"
+      idempotency_required: true
+      rules:
+        - "Password reset token MUST be one-time-use."
+        - "New password MUST satisfy tenant password policy."
+    - id: "TSI-202"
+      method: "POST"
+      path: "/auth/password/change"
+      authentication_required: true
+      purpose: "Change password for the current authenticated tenant staff user."
+      request: "ChangePasswordRequest"
+      response: "ChangePasswordResponse"
+      rules:
+        - "Password change MUST require current password."
+        - "New password MUST satisfy tenant password policy."
+
+  staff_admin:
+    - id: "TSI-300"
+      method: "GET"
+      path: "/internal/staff/users"
+      authentication_required: true
+      required_permission: "tenant.staff.view"
+      purpose: "List tenant staff users and their fixed role assignments."
+      response: "TenantStaffUserListResponse"
+    - id: "TSI-301"
+      method: "PATCH"
+      path: "/internal/staff/users/{userId}"
+      authentication_required: true
+      required_permission: "tenant.staff.update"
+      purpose: "Update tenant staff user profile fields such as display_name or phone."
+      request: "UpdateTenantStaffUserRequest"
+      response: "TenantStaffUserResponse"
+    - id: "TSI-302"
+      method: "POST"
+      path: "/internal/staff/users/{userId}/disable"
+      authentication_required: true
+      required_permission: "tenant.staff.disable"
+      purpose: "Disable a tenant staff user without deleting historical references."
+      request: "DisableTenantStaffUserRequest"
+      response: "TenantStaffUserResponse"
+      idempotency_required: true
+      rules:
+        - "Disabled staff user MUST NOT be able to login."
+        - "Disable operation MUST preserve historical records."
+        - "Disable operation MUST be audited."
+    - id: "TSI-303"
+      method: "POST"
+      path: "/internal/staff/users/{userId}/roles"
+      authentication_required: true
+      required_permission: "tenant.staff.assign_roles"
+      purpose: "Replace fixed tenant role assignments for a tenant staff user."
+      request: "AssignTenantStaffRolesRequest"
+      response: "TenantStaffUserResponse"
+      idempotency_required: true
+      rules:
+        - "Role assignment MUST use fixed tenant role catalog values."
+        - "Platform roles MUST NOT be assignable."
+        - "Tenant owner role assignment MUST follow ownership rules and MUST NOT be exposed through generic staff role assignment in the initial product version."
+        - "Role assignment MUST be audited."
+
+request_response_contracts:
+  ActivateStaffInviteRequest:
+    required:
+      - "token"
+      - "password"
+      - "display_name"
+    optional:
+      - "phone"
+    rules:
+      - "Password MUST satisfy password policy."
+      - "Token plaintext MUST NOT be logged."
+  ValidateStaffInviteResponse:
+    fields:
+      - "valid"
+      - "expired"
+      - "invite_status"
+      - "email"
+      - "display_name"
+      - "role"
+      - "tenant_display_name"
+    forbidden_fields:
+      - "invite_token_hash"
+      - "password_hash"
+  TenantStaffLoginRequest:
+    required:
+      - "email"
+      - "password"
+    optional:
+      - "two_factor_code"
+  TenantStaffLoginResponse:
+    fields:
+      - "access_token_or_session_created"
+      - "user"
+      - "roles"
+      - "permissions"
+      - "requires_two_factor"
+  CurrentTenantStaffUserResponse:
+    fields:
+      - "user_id"
+      - "display_name"
+      - "email"
+      - "status"
+      - "roles"
+      - "permissions"
+      - "two_factor_enabled"
+  AssignTenantStaffRolesRequest:
+    required:
+      - "roles"
+    allowed_roles:
+      - "tenant_admin"
+      - "tenant_manager"
+      - "cashier"
+      - "floor_staff"
+      - "station_operator"
+      - "accountant"
+
+security_and_audit:
+  audit_required_for:
+    - "staff_invite_activated"
+    - "staff_login_success"
+    - "staff_login_failed"
+    - "password_reset_requested"
+    - "password_reset_completed"
+    - "password_changed"
+    - "staff_user_disabled"
+    - "staff_role_assigned"
+  rules:
+    - "Tenant identity API MUST not log invite token plaintext."
+    - "Tenant identity API MUST not log password plaintext."
+    - "Tenant identity API MUST not return password hashes."
+    - "Staff disable and role assignment MUST be audited."
+    - "Login failure responses SHOULD avoid user enumeration."
+
+forbidden_behavior:
+  - "tenant_staff_identity_api_on_platform_domain"
+  - "tenant_staff_login_using_platform_database"
+  - "tenant_staff_api_cross_tenant_query"
+  - "tenant_staff_identity_data_in_platform_database"
+  - "hard_delete_staff_endpoint_initial_version"
+  - "disabled_staff_user_login"
+  - "duplicate_active_email_within_same_tenant"
+  - "tenant_owner_role_assigned_from_staff_invite_activation"
+  - "tenant_owner_role_assigned_from_generic_staff_role_endpoint_initial_version"
+  - "platform_role_assigned_from_tenant_staff_api"
+  - "plaintext_invite_token_logging"
+  - "plaintext_password_logging"
+  - "password_hash_returned_by_api"
+
+open_decisions: []
+
+done_when:
+  - "tenant_staff_identity_api_policy_is_defined"
+  - "route_families_are_defined"
+  - "common_contract_rules_are_defined"
+  - "invite_validation_endpoint_is_defined"
+  - "invite_activation_endpoint_is_defined"
+  - "login_logout_me_endpoints_are_defined"
+  - "password_flow_endpoints_are_defined"
+  - "staff_admin_endpoints_are_defined"
+  - "request_response_contracts_are_defined"
+  - "security_and_audit_rules_are_defined"
+  - "forbidden_identity_api_behavior_is_defined"
