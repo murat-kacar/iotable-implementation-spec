@@ -215,6 +215,45 @@ payment_checkout_scope:
     - "IoTable MUST NOT generate e-invoice or e-archive documents."
     - "Payment collection is handled outside IoTable."
 
+customer_ordering_session_baseline:
+  menu_access:
+    qr_scan_opens_menu: true
+    order_required_to_create_bill_session: true
+    order_required_to_create_table_bill: true
+  table_bill_session:
+    scope: "table"
+    creation_trigger: "first_submitted_order_for_table"
+    shared_by_multiple_customers: true
+    customer_join_behavior: "qr_customer_joins_existing_active_table_bill_session_when_present"
+    customer_can_view_bill: true
+    closing_actor: "cashier"
+    closing_trigger: "manual_payment_received_recorded_by_cashier"
+  cart_and_ordering:
+    customer_can_add_items_to_cart: true
+    customer_can_submit_order: true
+    submitted_orders_attach_to_table_bill_session: true
+    multiple_customers_same_table_allowed: true
+    all_customer_orders_write_to_same_table_bill: true
+  tracking:
+    customer_can_track_process: true
+    staff_can_track_process: true
+    individual_customer_order_tracking: "open_decision"
+  station_flow:
+    submitted_items_route_to_station: true
+    station_acceptance_required: true
+    station_ready_mark_required: true
+  rules:
+    - "Scanning a QR code MUST open the customer menu surface."
+    - "A table bill session MUST NOT exist only because the menu was opened."
+    - "A table bill session MUST be created when the first order is submitted for the table."
+    - "Multiple customers MAY participate at the same table."
+    - "Customers joining the same table MUST write orders to the same table bill session."
+    - "The customer MUST be able to view the table bill session."
+    - "The cashier MUST close the table bill session manually after external payment collection."
+    - "Submitted order items MUST be routed to the relevant station workflow."
+    - "Stations MUST acknowledge accepted work."
+    - "Stations MUST mark produced items as ready."
+
 stakeholders:
   - id: "platform_owner"
     primary_goal: "Manage the entire IoTable installation and observe tenant lifecycle state."
@@ -321,18 +360,21 @@ open_product_decisions:
     topic: "ESP32 device identity model"
     status: "open"
   - id: "PD-002"
-    topic: "Public customer session model"
+    topic: "QR token semantic model"
     status: "open"
   - id: "PD-003"
-    topic: "Admin panel application and deployment split"
+    topic: "Individual customer order tracking granularity"
     status: "open"
   - id: "PD-004"
-    topic: "Station and order routing model"
+    topic: "Admin panel application and deployment split"
     status: "open"
   - id: "PD-005"
-    topic: "Full module inventory"
+    topic: "Station and order routing model"
     status: "open"
   - id: "PD-006"
+    topic: "Full module inventory"
+    status: "open"
+  - id: "PD-007"
     topic: "Architecture style decision"
     status: "open"
 
@@ -345,6 +387,7 @@ done_when:
   - "route_namespace_standard_is_defined"
   - "authentication_authorization_baseline_is_defined"
   - "payment_checkout_scope_is_defined"
+  - "customer_ordering_session_baseline_is_defined"
   - "stakeholders_are_defined"
   - "application_surface_families_are_defined"
   - "api_families_are_defined"
