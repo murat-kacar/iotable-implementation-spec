@@ -71,7 +71,7 @@ specification_sections:
   - id: "02-system-architecture"
     path: "specs/02-system-architecture"
     schema_path: "schemas/02-system-architecture"
-    purpose: "Defines system architecture, module boundaries, runtime topology, frontend application isolation, and architectural decisions."
+    purpose: "Defines system architecture, module boundaries, runtime topology, frontend application isolation, backend solution structure, and architectural decisions."
     required: true
     documents:
       - id: "02-system-architecture.architecture-style"
@@ -81,6 +81,10 @@ specification_sections:
       - id: "02-system-architecture.frontend-application-split"
         path: "specs/02-system-architecture/frontend-application-split.yaml"
         schema_file: "schemas/02-system-architecture/frontend-application-split.schema.json"
+        status: "draft"
+      - id: "02-system-architecture.backend-solution-structure"
+        path: "specs/02-system-architecture/backend-solution-structure.yaml"
+        schema_file: "schemas/02-system-architecture/backend-solution-structure.schema.json"
         status: "draft"
 
   - id: "03-domain"
@@ -226,5 +230,8 @@ schema_policy:
 
 open_items:
   - id: "IDX-001"
-    topic: "Define concrete backend solution and project folder structure."
+    topic: "Define concrete background job library selection."
+    status: "open"
+  - id: "IDX-002"
+    topic: "Define concrete cache and distributed lock technology selection."
     status: "open"
