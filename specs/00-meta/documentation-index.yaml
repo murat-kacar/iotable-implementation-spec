@@ -212,6 +212,10 @@ specification_sections:
         path: "specs/08-data-contracts/customer-order-data.yaml"
         schema_file: "schemas/08-data-contracts/customer-order-data.schema.json"
         status: "draft"
+      - id: "08-data-contracts.bill-session-data"
+        path: "specs/08-data-contracts/bill-session-data.yaml"
+        schema_file: "schemas/08-data-contracts/bill-session-data.schema.json"
+        status: "draft"
 
   - id: "09-realtime-device-contracts"
     path: "specs/09-realtime-device-contracts"
