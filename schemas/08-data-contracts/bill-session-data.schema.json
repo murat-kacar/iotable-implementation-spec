@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/08-data-contracts/bill-session-data.schema.json",
+  "title": "IoTable Bill Session Data Contracts Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "isolation_principle",
+    "common_columns",
+    "bill_session_policy",
+    "manual_payment_policy",
+    "tables",
+    "bill_close_data_rules",
+    "bill_reopen_data_rules",
+    "integration_with_customer_order_data",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "type": "object", "additionalProperties": true },
+    "purpose": { "type": "object", "additionalProperties": true },
+    "isolation_principle": { "type": "object", "additionalProperties": true },
+    "common_columns": { "type": "object", "additionalProperties": true },
+    "bill_session_policy": { "type": "object", "additionalProperties": true },
+    "manual_payment_policy": { "type": "object", "additionalProperties": true },
+    "tables": { "type": "object", "additionalProperties": true },
+    "bill_close_data_rules": { "type": "object", "additionalProperties": true },
+    "bill_reopen_data_rules": { "type": "object", "additionalProperties": true },
+    "integration_with_customer_order_data": { "type": "object", "additionalProperties": true },
+    "forbidden_behavior": { "type": "array", "items": { "type": "string" } },
+    "open_decisions": { "type": "array" },
+    "done_when": { "type": "array", "items": { "type": "string" } }
+  }
+}
