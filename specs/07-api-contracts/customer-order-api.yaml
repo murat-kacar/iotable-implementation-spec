@@ -1,0 +1,368 @@
+document:
+  id: "07-api-contracts.customer-order-api"
+  title: "IoTable Customer Order API Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/07-api-contracts/customer-order-api.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define customer-facing tenant API contracts for public menu access, fresh QR session join, customer session extension, bill view, cart read/mutation, order submission, and customer order status."
+  applies_to:
+    - "customer_menu_routes"
+    - "customer_qr_access"
+    - "customer_sessions"
+    - "customer_cart"
+    - "customer_order_submit"
+    - "bill_view"
+    - "tenant_customer_api"
+
+api_policy:
+  route_root: "https://{tenant}.iotables.net/api/customer"
+  tenant_domain_only: true
+  platform_domain_allowed: false
+  tenant_resolution: "subdomain"
+  database_context: "resolved_tenant_database_only"
+  customer_login_required: false
+  customer_phone_required: false
+  session_transport: "http_only_secure_cookie"
+  rules:
+    - "Customer order API MUST be served only from tenant domains."
+    - "Customer order API MUST NOT be served from platform.iotables.net."
+    - "Customer order API MUST resolve exactly one tenant database from the request subdomain."
+    - "Customer order API MUST NOT query or mutate another tenant database."
+    - "Customer ordering MUST NOT require customer login in the initial product version."
+    - "Customer ordering MUST NOT require phone number in the initial product version."
+    - "Customer session token MUST be transported using HttpOnly Secure cookie."
+    - "Customer session token MUST NOT be stored in localStorage."
+
+access_policy:
+  stale_qr_allowed_for:
+    - "public_menu"
+  fresh_qr_required_for:
+    - "session_join"
+  active_customer_session_required_for:
+    - "session_current"
+    - "session_extend"
+    - "bill_view"
+    - "cart_read"
+    - "cart_mutation"
+    - "order_submit"
+    - "order_status"
+  rules:
+    - "Public menu endpoint MUST allow stale QR access."
+    - "Public menu endpoint MUST NOT reveal active bill/adisyon state."
+    - "Public menu endpoint MUST NOT reveal cart or session state."
+    - "Session join endpoint MUST require fresh QR token."
+    - "Bill view, cart read, cart mutation, order submit, and order status MUST require active customer session."
+
+common_contract_rules:
+  id_format: "uuid"
+  timestamp_format: "iso_8601_utc"
+  request_body_format: "json"
+  response_body_format: "json"
+  error_format: "problem_details"
+  idempotency:
+    required_for:
+      - "session_join"
+      - "session_extend"
+      - "cart_item_add"
+      - "cart_item_update"
+      - "cart_item_delete"
+      - "order_submit"
+  rules:
+    - "Validation errors MUST use ProblemDetails."
+    - "Mutation endpoints MUST support idempotency where listed."
+    - "Order submit MUST be idempotent."
+    - "Cart mutations MUST be idempotent to avoid duplicate items from network retries."
+    - "Customer session cookies MUST use HttpOnly, Secure, and SameSite=Lax or stricter."
+
+endpoints:
+  public_menu:
+    - id: "COA-001"
+      method: "GET"
+      path: "/menu"
+      authentication_required: false
+      stale_qr_allowed: true
+      active_customer_session_required: false
+      purpose: "Return public active menu for a tenant/table context without exposing bill, cart, or session state."
+      query_parameters:
+        - "qr"
+      response: "PublicMenuResponse"
+      rules:
+        - "Menu endpoint MAY accept stale QR."
+        - "Menu endpoint MUST return only active categories and active visible menu items."
+        - "Menu endpoint MUST NOT reveal whether an active bill exists."
+        - "Menu endpoint MUST NOT return cart contents."
+        - "Menu endpoint MUST NOT create customer session."
+
+  sessions:
+    - id: "COA-100"
+      method: "POST"
+      path: "/sessions/join"
+      authentication_required: false
+      fresh_qr_required: true
+      purpose: "Join or create a customer session using a fresh QR token."
+      request: "JoinCustomerSessionRequest"
+      response: "JoinCustomerSessionResponse"
+      idempotency_required: true
+      sets_cookie: "customer_session"
+      rules:
+        - "Session join MUST require fresh QR token."
+        - "Session join MUST validate token hash in resolved tenant database."
+        - "Session join MUST consume the fresh QR token."
+        - "Session join MUST rotate table QR after successful consume."
+        - "Session join MUST create an active customer session with 10 minute initial TTL."
+        - "Session join MUST create one active cart for the session."
+        - "Session join MUST set customer session through HttpOnly Secure cookie."
+    - id: "COA-101"
+      method: "POST"
+      path: "/sessions/extend"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Extend an active customer session by explicit user-visible action within extension limits."
+      request: "ExtendCustomerSessionRequest"
+      response: "CustomerSessionResponse"
+      idempotency_required: true
+      rules:
+        - "Session extension MUST require active customer session."
+        - "Session extension MUST require explicit user-visible action."
+        - "Session extension MUST NOT require scanning a new fresh QR."
+        - "Session extension MUST add at most 10 minutes."
+        - "Session extension MUST fail after 3 extensions or 40 minutes total lifetime."
+    - id: "COA-102"
+      method: "GET"
+      path: "/sessions/current"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Return the current active customer session state and remaining lifetime."
+      response: "CustomerSessionResponse"
+      rules:
+        - "Current session endpoint MUST require active customer session."
+        - "Current session endpoint MUST NOT revive expired or offline sessions."
+
+  bill:
+    - id: "COA-200"
+      method: "GET"
+      path: "/bill/current"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Return current bill/adisyon summary visible to an active customer session."
+      response: "CustomerBillResponse"
+      rules:
+        - "Bill view MUST require active customer session."
+        - "Bill view MUST NOT be available from stale QR."
+        - "Bill view MUST return only bill data for the session table in the resolved tenant database."
+
+  cart:
+    - id: "COA-300"
+      method: "GET"
+      path: "/cart"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Return current customer cart."
+      response: "CustomerCartResponse"
+      rules:
+        - "Cart read MUST require active customer session."
+    - id: "COA-301"
+      method: "POST"
+      path: "/cart/items"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Add an orderable menu item to the current customer cart."
+      request: "AddCustomerCartItemRequest"
+      response: "CustomerCartResponse"
+      idempotency_required: true
+      rules:
+        - "Add cart item MUST require active customer session."
+        - "Add cart item MUST reject inactive or non-orderable menu items."
+        - "Add cart item MUST snapshot current item name, price, currency, and station routing."
+    - id: "COA-302"
+      method: "PATCH"
+      path: "/cart/items/{cartItemId}"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Update quantity or note for a current cart item."
+      request: "UpdateCustomerCartItemRequest"
+      response: "CustomerCartResponse"
+      idempotency_required: true
+      rules:
+        - "Cart item update MUST require active customer session."
+        - "Cart item update MUST only affect the current session cart."
+        - "Quantity MUST remain positive."
+    - id: "COA-303"
+      method: "DELETE"
+      path: "/cart/items/{cartItemId}"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Remove an item from the current customer cart."
+      response: "CustomerCartResponse"
+      idempotency_required: true
+      rules:
+        - "Cart item delete MUST require active customer session."
+        - "Cart item delete MUST only affect the current session cart."
+
+  orders:
+    - id: "COA-400"
+      method: "POST"
+      path: "/orders/submit"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Submit the current customer cart as exactly one order and move the customer session offline."
+      request: "SubmitCustomerOrderRequest"
+      response: "SubmitCustomerOrderResponse"
+      idempotency_required: true
+      clears_or_locks_cart: true
+      moves_session_offline: true
+      rules:
+        - "Order submit MUST require active customer session."
+        - "Order submit MUST require non-empty cart."
+        - "Order submit MUST revalidate current price and station routing for all cart items."
+        - "Order submit MUST create exactly one order."
+        - "Order submit MUST create order items and station tickets grouped by station."
+        - "Order submit MUST lock or submit the cart."
+        - "Order submit MUST move the customer session offline immediately after success."
+        - "Order submit MUST be atomic."
+    - id: "COA-401"
+      method: "GET"
+      path: "/orders/{orderId}"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Return status of an order belonging to the active customer session."
+      response: "CustomerOrderResponse"
+      rules:
+        - "Order status MUST require active customer session."
+        - "Order status MUST only return orders belonging to the current customer session."
+
+request_response_contracts:
+  JoinCustomerSessionRequest:
+    required:
+      - "qr_token"
+    rules:
+      - "qr_token plaintext MUST NOT be logged."
+  JoinCustomerSessionResponse:
+    fields:
+      - "session_id"
+      - "table_id"
+      - "expires_at_utc"
+      - "extension_count"
+      - "max_extensions"
+      - "max_expires_at_utc"
+      - "cart"
+    cookie:
+      name: "customer_session"
+      http_only: true
+      secure: true
+      same_site: "Lax_or_Stricter"
+  CustomerSessionResponse:
+    fields:
+      - "session_id"
+      - "table_id"
+      - "status"
+      - "expires_at_utc"
+      - "extension_count"
+      - "max_extensions"
+      - "max_expires_at_utc"
+      - "server_time_utc"
+  PublicMenuResponse:
+    fields:
+      - "tenant_display_name"
+      - "table_display_name"
+      - "categories"
+      - "items"
+    forbidden_fields:
+      - "bill_exists"
+      - "bill_total"
+      - "cart"
+      - "customer_session"
+      - "active_order_count"
+  AddCustomerCartItemRequest:
+    required:
+      - "menu_item_id"
+      - "quantity"
+    optional:
+      - "note"
+    rules:
+      - "quantity MUST be positive."
+  UpdateCustomerCartItemRequest:
+    optional:
+      - "quantity"
+      - "note"
+    rules:
+      - "At least one mutable field MUST be present."
+      - "quantity MUST be positive when provided."
+  SubmitCustomerOrderRequest:
+    optional:
+      - "client_note"
+    rules:
+      - "Request MUST NOT include trusted price totals."
+      - "Server MUST calculate all totals."
+  SubmitCustomerOrderResponse:
+    fields:
+      - "order_id"
+      - "order_number"
+      - "status"
+      - "submitted_at_utc"
+      - "total_amount"
+      - "currency"
+      - "station_ticket_count"
+      - "session_status"
+    fixed_values:
+      session_status: "offline"
+
+security_and_audit:
+  security_rules:
+    - "QR token plaintext MUST NOT be logged."
+    - "Customer session cookie MUST be HttpOnly and Secure."
+    - "Customer session cookie MUST NOT be accessible to browser JavaScript."
+    - "Order submit MUST not trust client-side totals or prices."
+    - "All customer operations MUST execute only inside the resolved tenant database."
+  audit_or_event_required_for:
+    - "fresh_qr_consumed"
+    - "customer_session_joined"
+    - "customer_session_extended"
+    - "customer_order_submitted"
+    - "customer_session_moved_offline"
+
+forbidden_behavior:
+  - "customer_order_api_on_platform_domain"
+  - "customer_order_api_cross_tenant_query"
+  - "customer_session_token_in_local_storage"
+  - "customer_session_cookie_without_http_only"
+  - "customer_session_cookie_without_secure"
+  - "stale_qr_session_join"
+  - "stale_qr_bill_view"
+  - "stale_qr_cart_mutation"
+  - "stale_qr_order_submit"
+  - "public_menu_revealing_bill_state"
+  - "cart_mutation_without_active_customer_session"
+  - "order_submit_without_active_customer_session"
+  - "order_submit_without_idempotency"
+  - "cart_mutation_without_idempotency"
+  - "order_submit_trusting_client_price_or_total"
+  - "order_submit_without_price_revalidation"
+  - "order_submit_without_station_routing_revalidation"
+  - "customer_login_required_initial_version"
+  - "customer_phone_required_initial_version"
+
+open_decisions: []
+
+done_when:
+  - "customer_order_api_policy_is_defined"
+  - "customer_access_policy_is_defined"
+  - "common_contract_rules_are_defined"
+  - "public_menu_endpoint_is_defined"
+  - "session_join_endpoint_is_defined"
+  - "session_extend_endpoint_is_defined"
+  - "session_current_endpoint_is_defined"
+  - "bill_current_endpoint_is_defined"
+  - "cart_read_endpoint_is_defined"
+  - "cart_mutation_endpoints_are_defined"
+  - "order_submit_endpoint_is_defined"
+  - "order_status_endpoint_is_defined"
+  - "request_response_contracts_are_defined"
+  - "security_and_audit_rules_are_defined"
+  - "forbidden_customer_order_api_behavior_is_defined"
