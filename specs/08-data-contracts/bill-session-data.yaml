@@ -1,0 +1,286 @@
+document:
+  id: "08-data-contracts.bill-session-data"
+  title: "IoTable Bill Session Data Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/08-data-contracts/bill-session-data.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant-owned bill/adisyon session, bill-order attachment, manual payment, and bill reopen event data contracts."
+  applies_to:
+    - "tenant_database"
+    - "bill_sessions"
+    - "customer_order_submit"
+    - "staff_pda_order_submit"
+    - "manual_payments"
+    - "cashier_workspace"
+    - "bill_reopen"
+
+isolation_principle:
+  model: "database_per_tenant"
+  ownership: "tenant_database"
+  rules:
+    - "Bill session data MUST be stored only in the resolved tenant database."
+    - "Bill session data MUST NOT be stored in the platform database."
+    - "Bill session tables SHOULD NOT include tenant_id for isolation."
+    - "Bill session isolation MUST be enforced by tenant database boundary."
+    - "Bill session queries MUST NOT cross tenant database boundaries."
+
+common_columns:
+  required_for_mutable_tables:
+    - "id"
+    - "created_at_utc"
+    - "updated_at_utc"
+  id_policy:
+    type: "uuid"
+    generated_by: "application_or_database"
+  time_policy:
+    timezone: "utc"
+    rules:
+      - "Mutable bill session tables MUST include created_at_utc and updated_at_utc."
+      - "Timestamp fields MUST be stored in UTC."
+
+bill_session_policy:
+  one_active_bill_per_table: true
+  customer_order_submit_auto_opens_bill_if_none_exists: true
+  staff_pda_order_submit_auto_opens_bill_if_none_exists: true
+  source_of_truth_for_total: "server_side_order_item_snapshots"
+  rules:
+    - "A table MUST NOT have more than one active bill session."
+    - "Bill totals MUST be calculated from non-cancelled order items attached through bill_orders."
+    - "Client-provided bill totals MUST NOT be persisted as source of truth."
+    - "Closed bill sessions MUST NOT accept new orders unless reopened."
+
+manual_payment_policy:
+  provider_payment_supported: false
+  manual_payment_required_to_close: true
+  partial_payment_supported_initial_version: false
+  overpayment_supported_initial_version: false
+  amount_must_match_bill_total_initial_version: true
+  payment_methods:
+    - "cash"
+    - "card_external_pos"
+    - "bank_transfer"
+    - "other"
+  rules:
+    - "Manual payment records MUST represent external/offline payment events."
+    - "Manual payment records MUST NOT imply that IoTable processed a payment provider charge."
+    - "Initial product version MUST require one manual payment record matching bill total to close."
+    - "Partial payments MUST NOT be supported in the initial product version."
+    - "Overpayments MUST NOT be supported in the initial product version."
+
+tables:
+  bill_sessions:
+    ownership: "tenant_database"
+    purpose: "Stores table adisyon lifecycle, totals, and close state."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      table_id: "uuid_required_fk_tables"
+      status: "enum_required"
+      opened_at_utc: "timestamptz_required"
+      opened_by_user_id: "uuid_nullable_fk_tenant_users"
+      opened_by_source: "enum_required"
+      closing_started_at_utc: "timestamptz_nullable"
+      closing_started_by_user_id: "uuid_nullable_fk_tenant_users"
+      closed_at_utc: "timestamptz_nullable"
+      closed_by_user_id: "uuid_nullable_fk_tenant_users"
+      cancelled_at_utc: "timestamptz_nullable"
+      cancelled_by_user_id: "uuid_nullable_fk_tenant_users"
+      subtotal_amount: "numeric_required_default_0"
+      discount_amount: "numeric_required_default_0"
+      service_charge_amount: "numeric_required_default_0"
+      tax_amount: "numeric_required_default_0"
+      total_amount: "numeric_required_default_0"
+      currency: "char3_required_default_TRY"
+      order_count: "integer_required_default_0"
+      last_order_at_utc: "timestamptz_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "open"
+      - "closing"
+      - "closed"
+      - "reopened"
+      - "cancelled"
+    allowed_opened_by_sources:
+      - "customer_order_submit"
+      - "staff_pda_order_submit"
+      - "staff_manual_open"
+      - "system"
+    indexes:
+      - "ix_bill_sessions_table_status"
+      - "ix_bill_sessions_opened_at"
+      - "ix_bill_sessions_closed_at"
+    unique_constraints:
+      - "ux_bill_sessions_one_active_per_table"
+    constraints:
+      - "one_active_bill_per_table"
+      - "closed_bill_requires_closed_at"
+      - "cancelled_bill_requires_cancelled_at"
+      - "bill_total_must_not_be_negative"
+      - "client_total_not_source_of_truth"
+
+  bill_orders:
+    ownership: "tenant_database"
+    purpose: "Links submitted orders to bill sessions without embedding bill ownership into orders."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      bill_session_id: "uuid_required_fk_bill_sessions"
+      order_id: "uuid_required_fk_orders"
+      attached_at_utc: "timestamptz_required"
+      attached_by_source: "enum_required"
+      detached_at_utc: "timestamptz_nullable"
+      detached_by_user_id: "uuid_nullable_fk_tenant_users"
+      detach_reason: "text_nullable"
+      status: "enum_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_attached_by_sources:
+      - "customer_order_submit"
+      - "staff_pda_order_submit"
+      - "staff_manual_attach"
+      - "system"
+    allowed_statuses:
+      - "attached"
+      - "detached"
+      - "cancelled"
+    unique_constraints:
+      - "ux_bill_orders_order_id"
+      - "ux_bill_orders_bill_order"
+    indexes:
+      - "ix_bill_orders_bill_session_id"
+      - "ix_bill_orders_order_id"
+    constraints:
+      - "one_order_attaches_to_one_bill"
+      - "order_attach_atomic_with_order_submit"
+      - "attached_order_table_must_match_bill_table"
+
+  manual_payments:
+    ownership: "tenant_database"
+    purpose: "Stores offline/external payment records used to close bill sessions."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      bill_session_id: "uuid_required_fk_bill_sessions"
+      amount: "numeric_required"
+      currency: "char3_required_default_TRY"
+      payment_method: "enum_required"
+      external_reference: "text_nullable"
+      note: "text_nullable"
+      recorded_by_user_id: "uuid_required_fk_tenant_users"
+      recorded_at_utc: "timestamptz_required"
+      status: "enum_required"
+      voided_at_utc: "timestamptz_nullable"
+      voided_by_user_id: "uuid_nullable_fk_tenant_users"
+      void_reason: "text_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_payment_methods:
+      - "cash"
+      - "card_external_pos"
+      - "bank_transfer"
+      - "other"
+    allowed_statuses:
+      - "recorded"
+      - "voided"
+    indexes:
+      - "ix_manual_payments_bill_session_id"
+      - "ix_manual_payments_recorded_at"
+    constraints:
+      - "manual_payment_amount_positive"
+      - "manual_payment_amount_must_match_bill_total_initial_version"
+      - "partial_payment_forbidden_initial_version"
+      - "overpayment_forbidden_initial_version"
+      - "manual_payment_is_not_provider_charge"
+      - "voided_payment_requires_void_reason"
+
+  bill_reopen_events:
+    ownership: "tenant_database"
+    purpose: "Stores audited reopen events for closed bill sessions."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      bill_session_id: "uuid_required_fk_bill_sessions"
+      previous_status: "enum_required"
+      reopened_by_user_id: "uuid_required_fk_tenant_users"
+      reason: "text_required"
+      reopened_at_utc: "timestamptz_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_previous_statuses:
+      - "closed"
+    indexes:
+      - "ix_bill_reopen_events_bill_session_id"
+      - "ix_bill_reopen_events_reopened_at"
+    constraints:
+      - "bill_reopen_reason_required"
+      - "bill_reopen_actor_required"
+      - "bill_reopen_previous_status_required"
+      - "reopen_only_from_closed"
+
+bill_close_data_rules:
+  atomic_operation: true
+  updates:
+    - "bill_sessions"
+  creates:
+    - "manual_payments"
+  rules:
+    - "Bill close MUST create a manual_payments row and set bill_sessions.status=closed atomically."
+    - "Bill close MUST re-read and recalculate bill total inside the transaction."
+    - "Bill close MUST reject client-provided totals as source of truth."
+    - "Bill close MUST reject partial or overpayment in the initial product version."
+
+bill_reopen_data_rules:
+  atomic_operation: true
+  updates:
+    - "bill_sessions"
+  creates:
+    - "bill_reopen_events"
+  rules:
+    - "Bill reopen MUST create a bill_reopen_events row and reopen bill session atomically."
+    - "Bill reopen MUST require reason and actor."
+    - "Bill reopen MUST fail if another active bill exists for the same table."
+
+integration_with_customer_order_data:
+  order_attachment: "bill_orders"
+  rules:
+    - "orders table MUST NOT need bill_session_id for bill ownership."
+    - "Bill ownership of orders MUST be represented by bill_orders."
+    - "Order submit transaction MUST create bill_orders after creating orders."
+    - "Bill total recalculation MUST use bill_orders joined to order_items."
+
+forbidden_behavior:
+  - "bill_session_data_in_platform_database"
+  - "multiple_active_bills_per_table"
+  - "order_attached_to_multiple_bills"
+  - "bill_order_table_mismatch"
+  - "bill_close_without_manual_payment"
+  - "bill_close_without_recalculating_total"
+  - "bill_close_trusting_client_total"
+  - "manual_payment_provider_charge_initial_version"
+  - "partial_payment_initial_version"
+  - "overpayment_initial_version"
+  - "bill_reopen_without_reason"
+  - "bill_reopen_without_actor"
+  - "bill_reopen_when_another_active_bill_exists"
+
+open_decisions: []
+
+done_when:
+  - "bill_session_data_isolation_is_defined"
+  - "bill_session_policy_is_defined"
+  - "manual_payment_policy_is_defined"
+  - "bill_sessions_table_is_defined"
+  - "bill_orders_table_is_defined"
+  - "manual_payments_table_is_defined"
+  - "bill_reopen_events_table_is_defined"
+  - "bill_close_data_rules_are_defined"
+  - "bill_reopen_data_rules_are_defined"
+  - "customer_order_data_integration_is_defined"
+  - "forbidden_bill_session_data_behavior_is_defined"

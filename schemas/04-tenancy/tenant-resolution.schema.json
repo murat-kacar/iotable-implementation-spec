@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/04-tenancy/tenant-resolution.schema.json",
+  "title": "IoTable Tenant Resolution Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "canonical_domains",
+    "tenant_resolution_model",
+    "resolution_flow",
+    "status_behavior",
+    "connection_resolution",
+    "security_rules",
+    "platform_vs_tenant_route_boundary",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "type": "object", "additionalProperties": true },
+    "purpose": { "type": "object", "additionalProperties": true },
+    "canonical_domains": { "type": "object", "additionalProperties": true },
+    "tenant_resolution_model": { "type": "object", "additionalProperties": true },
+    "resolution_flow": { "type": "object", "additionalProperties": true },
+    "status_behavior": { "type": "object", "additionalProperties": true },
+    "connection_resolution": { "type": "object", "additionalProperties": true },
+    "security_rules": { "type": "object", "additionalProperties": true },
+    "platform_vs_tenant_route_boundary": { "type": "object", "additionalProperties": true },
+    "forbidden_behavior": { "type": "array", "items": { "type": "string" } },
+    "open_decisions": { "type": "array" },
+    "done_when": { "type": "array", "items": { "type": "string" } }
+  }
+}

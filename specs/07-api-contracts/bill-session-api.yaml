@@ -1,0 +1,298 @@
+document:
+  id: "07-api-contracts.bill-session-api"
+  title: "IoTable Bill Session API Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/07-api-contracts/bill-session-api.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define customer and staff bill/adisyon API contracts for bill view, staff bill list/detail, manual payment recording, bill close, and bill reopen."
+  applies_to:
+    - "customer_bill_view"
+    - "staff_bill_view"
+    - "cashier_workspace"
+    - "manual_payments"
+    - "bill_close"
+    - "bill_reopen"
+    - "tenant_internal_api"
+
+api_policy:
+  tenant_domain_only: true
+  platform_domain_allowed: false
+  tenant_resolution: "subdomain"
+  database_context: "resolved_tenant_database_only"
+  payment_provider_processing: false
+  rules:
+    - "Bill session APIs MUST be served only from tenant domains."
+    - "Bill session APIs MUST NOT be served from platform.iotables.net."
+    - "Bill session APIs MUST resolve exactly one tenant database from the request subdomain."
+    - "Bill session APIs MUST NOT query or mutate another tenant database."
+    - "Bill session APIs MUST NOT process provider payments in the initial product version."
+    - "Manual payment APIs MUST record external/offline payment events only."
+
+route_families:
+  customer_bill: "https://{tenant}.iotables.net/api/customer/bill/**"
+  staff_bill: "https://{tenant}.iotables.net/api/internal/bills/**"
+  rules:
+    - "Customer bill endpoints MUST be scoped by active customer session and table."
+    - "Staff bill endpoints MUST be authenticated tenant staff endpoints."
+    - "Staff bill endpoints MUST enforce permissions."
+
+common_contract_rules:
+  id_format: "uuid"
+  timestamp_format: "iso_8601_utc"
+  request_body_format: "json"
+  response_body_format: "json"
+  error_format: "problem_details"
+  idempotency:
+    required_for:
+      - "manual_payment_record"
+      - "bill_close"
+      - "bill_reopen"
+  rules:
+    - "Validation errors MUST use ProblemDetails."
+    - "State-changing bill endpoints MUST require idempotency keys."
+    - "Client-provided bill totals MUST NOT be trusted."
+    - "Bill totals MUST be recalculated server-side from attached order item snapshots."
+
+common_error_contract:
+  format: "problem_details"
+  content_type: "application/problem+json"
+  fields:
+    - "type"
+    - "title"
+    - "status"
+    - "detail"
+    - "instance"
+    - "correlationId"
+    - "errors"
+  rules:
+    - "Every bill session API error response with a JSON body MUST use application/problem+json."
+    - "Validation failures MUST return 400 with field-level errors."
+    - "Authentication failures MUST return 401."
+    - "Authorization failures MUST return 403."
+    - "Missing resources MUST return 404."
+    - "Bill state conflicts and idempotency conflicts MUST return 409."
+    - "Unexpected failures MUST return 500 with correlationId."
+
+endpoints:
+  customer_bill:
+    - id: "BSA-001"
+      method: "GET"
+      path: "/api/customer/bill/current"
+      authentication_required: true
+      active_customer_session_required: true
+      purpose: "Return current bill/adisyon summary for the active customer session table."
+      response: "CustomerBillResponse"
+      rules:
+        - "Customer bill current MUST require active customer session."
+        - "Customer bill current MUST be unavailable from stale QR."
+        - "Customer bill current MUST only return bill data for the current session table."
+        - "Customer bill current MUST NOT reveal bills from another table."
+        - "After order submit, the customer session is offline and this endpoint requires a new fresh QR session."
+
+  staff_bill:
+    - id: "BSA-100"
+      method: "GET"
+      path: "/api/internal/bills"
+      authentication_required: true
+      required_permission: "tenant.bills.view"
+      purpose: "List bill sessions for staff/cashier views."
+      query_parameters:
+        - "status"
+        - "tableId"
+        - "openedFrom"
+        - "openedTo"
+        - "page"
+        - "pageSize"
+      response: "PaginatedBillSessionSummaryResponse"
+      rules:
+        - "List bills MUST be permission protected."
+        - "List bills MUST use pagination."
+    - id: "BSA-101"
+      method: "GET"
+      path: "/api/internal/bills/{billSessionId}"
+      authentication_required: true
+      required_permission: "tenant.bills.view"
+      purpose: "Return bill session detail including attached orders, order items, station status summary, and manual payments."
+      response: "BillSessionDetailResponse"
+      rules:
+        - "Bill detail MUST be permission protected."
+        - "Bill detail MUST return only data from the resolved tenant database."
+    - id: "BSA-102"
+      method: "POST"
+      path: "/api/internal/bills/{billSessionId}/manual-payments"
+      authentication_required: true
+      required_permission: "tenant.manual_payments.record"
+      purpose: "Record an external/offline manual payment for a bill session."
+      request: "RecordManualPaymentRequest"
+      response: "ManualPaymentResponse"
+      idempotency_required: true
+      rules:
+        - "Manual payment MUST be permission protected."
+        - "Manual payment MUST NOT process provider payment charges."
+        - "Manual payment amount MUST be positive."
+        - "Initial product version MUST reject partial payments and overpayments."
+        - "Manual payment MUST be audited."
+    - id: "BSA-103"
+      method: "POST"
+      path: "/api/internal/bills/{billSessionId}/close"
+      authentication_required: true
+      required_permissions:
+        - "tenant.bills.close"
+        - "tenant.manual_payments.record"
+      purpose: "Record required manual payment if provided and close a bill session atomically."
+      request: "CloseBillSessionRequest"
+      response: "BillSessionDetailResponse"
+      idempotency_required: true
+      rules:
+        - "Bill close MUST be permission protected."
+        - "Bill close MUST re-read and recalculate bill total server-side inside the transaction."
+        - "Bill close MUST require exactly matching manual payment total in the initial product version."
+        - "Bill close MUST reject client-provided bill totals as source of truth."
+        - "Bill close MUST set bill session status to closed atomically with manual payment record creation or validation."
+        - "Bill close MUST be audited."
+    - id: "BSA-104"
+      method: "POST"
+      path: "/api/internal/bills/{billSessionId}/reopen"
+      authentication_required: true
+      required_permission: "tenant.bills.reopen"
+      purpose: "Reopen a closed bill session when no other active bill exists for the table."
+      request: "ReopenBillSessionRequest"
+      response: "BillSessionDetailResponse"
+      idempotency_required: true
+      rules:
+        - "Bill reopen MUST be permission protected."
+        - "Bill reopen MUST require reason."
+        - "Bill reopen MUST be limited to tenant_owner, tenant_admin, or tenant_manager through permission bundles."
+        - "Bill reopen MUST fail if another active bill exists for the same table."
+        - "Bill reopen MUST create bill_reopen_events record."
+        - "Bill reopen MUST be audited."
+
+request_response_contracts:
+  CustomerBillResponse:
+    fields:
+      - "bill_session_id"
+      - "table_id"
+      - "status"
+      - "orders"
+      - "items"
+      - "subtotal_amount"
+      - "discount_amount"
+      - "service_charge_amount"
+      - "tax_amount"
+      - "total_amount"
+      - "currency"
+      - "server_time_utc"
+    forbidden_fields:
+      - "other_table_bills"
+      - "staff_notes"
+      - "manual_payment_internal_notes"
+  PaginatedBillSessionSummaryResponse:
+    fields:
+      - "items"
+      - "page"
+      - "pageSize"
+      - "totalItems"
+      - "totalPages"
+  BillSessionDetailResponse:
+    fields:
+      - "bill_session"
+      - "table"
+      - "attached_orders"
+      - "order_items"
+      - "station_status_summary"
+      - "manual_payments"
+      - "reopen_events"
+      - "totals"
+    rules:
+      - "Totals MUST be server-calculated."
+  RecordManualPaymentRequest:
+    required:
+      - "amount"
+      - "currency"
+      - "payment_method"
+    optional:
+      - "external_reference"
+      - "note"
+    allowed_payment_methods:
+      - "cash"
+      - "card_external_pos"
+      - "bank_transfer"
+      - "other"
+    rules:
+      - "amount MUST be positive."
+      - "currency MUST match bill currency."
+      - "Request MUST NOT include payment provider charge data."
+  ManualPaymentResponse:
+    fields:
+      - "manual_payment_id"
+      - "bill_session_id"
+      - "amount"
+      - "currency"
+      - "payment_method"
+      - "status"
+      - "recorded_at_utc"
+  CloseBillSessionRequest:
+    optional:
+      - "manual_payment"
+      - "reason"
+    rules:
+      - "If manual_payment is provided, it MUST follow RecordManualPaymentRequest rules."
+      - "If an existing matching manual payment exists, close MAY use it."
+      - "Client-provided bill total MUST NOT be accepted."
+  ReopenBillSessionRequest:
+    required:
+      - "reason"
+    rules:
+      - "reason MUST be non-empty."
+
+security_and_audit:
+  audit_required_for:
+    - "manual_payment_recorded"
+    - "bill_close_started"
+    - "bill_closed"
+    - "bill_reopened"
+  security_rules:
+    - "Customer bill view MUST be scoped to active customer session table."
+    - "Staff bill APIs MUST be permission protected."
+    - "Manual payment records MUST not imply IoTable processed payment provider charges."
+    - "Client totals MUST never be trusted."
+    - "Bill close and reopen MUST be idempotent and audited."
+
+forbidden_behavior:
+  - "bill_session_api_on_platform_domain"
+  - "bill_session_api_cross_tenant_query"
+  - "customer_bill_view_from_stale_qr"
+  - "customer_bill_view_for_other_table"
+  - "staff_bill_view_without_permission"
+  - "manual_payment_without_permission"
+  - "manual_payment_provider_charge_initial_version"
+  - "bill_close_without_permission"
+  - "bill_close_trusting_client_total"
+  - "bill_close_without_matching_manual_payment_initial_version"
+  - "partial_payment_initial_version"
+  - "overpayment_initial_version"
+  - "bill_reopen_without_permission"
+  - "bill_reopen_without_reason"
+  - "bill_reopen_when_another_active_bill_exists"
+
+open_decisions: []
+
+done_when:
+  - "bill_session_api_policy_is_defined"
+  - "route_families_are_defined"
+  - "common_contract_rules_are_defined"
+  - "customer_bill_endpoint_is_defined"
+  - "staff_bill_list_endpoint_is_defined"
+  - "staff_bill_detail_endpoint_is_defined"
+  - "manual_payment_endpoint_is_defined"
+  - "bill_close_endpoint_is_defined"
+  - "bill_reopen_endpoint_is_defined"
+  - "request_response_contracts_are_defined"
+  - "security_and_audit_rules_are_defined"
+  - "forbidden_bill_session_api_behavior_is_defined"

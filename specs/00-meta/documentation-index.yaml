@@ -1,0 +1,319 @@
+document:
+  id: "00-meta.documentation-index"
+  title: "IoTable Documentation Index"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/00-meta/documentation-index.schema.json"
+  status: "draft"
+
+repository:
+  canonical_branch: "master"
+  source_root: "specs"
+  schema_root: "schemas"
+  tools_root: "tools"
+
+required_session_bootstrap:
+  rule: "Specification work MUST start by reading the required meta documents."
+  documents:
+    - path: "specs/00-meta/specification-constitution.yaml"
+      purpose: "Defines binding specification rules and LLM behavior."
+    - path: "specs/00-meta/documentation-index.yaml"
+      purpose: "Defines the specification document set and dependency order."
+    - path: "specs/00-meta/source-policy.yaml"
+      purpose: "Defines source authority, allowed source usage, and conflict handling."
+    - path: "specs/00-meta/research-policy.yaml"
+      purpose: "Defines research triggers, source order, fit criteria, and recommendation handling."
+    - path: "specs/00-meta/llm-execution-policy.yaml"
+      purpose: "Defines mandatory behavior for LLM specification and coding agents."
+
+specification_sections:
+  - id: "00-meta"
+    path: "specs/00-meta"
+    schema_path: "schemas/00-meta"
+    purpose: "Defines repository-level specification rules, policies, indexes, and execution constraints."
+    required: true
+    documents:
+      - id: "00-meta.specification-constitution"
+        path: "specs/00-meta/specification-constitution.yaml"
+        schema_file: "schemas/00-meta/specification-constitution.schema.json"
+        status: "draft"
+      - id: "00-meta.documentation-index"
+        path: "specs/00-meta/documentation-index.yaml"
+        schema_file: "schemas/00-meta/documentation-index.schema.json"
+        status: "draft"
+      - id: "00-meta.source-policy"
+        path: "specs/00-meta/source-policy.yaml"
+        schema_file: "schemas/00-meta/source-policy.schema.json"
+        status: "draft"
+      - id: "00-meta.research-policy"
+        path: "specs/00-meta/research-policy.yaml"
+        schema_file: "schemas/00-meta/research-policy.schema.json"
+        status: "draft"
+      - id: "00-meta.llm-execution-policy"
+        path: "specs/00-meta/llm-execution-policy.yaml"
+        schema_file: "schemas/00-meta/llm-execution-policy.schema.json"
+        status: "draft"
+
+  - id: "01-product"
+    path: "specs/01-product"
+    schema_path: "schemas/01-product"
+    purpose: "Defines product identity, stakeholders, surfaces, scope, non-goals, and owner-approved behavior."
+    required: true
+    documents:
+      - id: "01-product.product-baseline"
+        path: "specs/01-product/product-baseline.yaml"
+        schema_file: "schemas/01-product/product-baseline.schema.json"
+        status: "draft"
+
+  - id: "02-system-architecture"
+    path: "specs/02-system-architecture"
+    schema_path: "schemas/02-system-architecture"
+    purpose: "Defines system architecture, module boundaries, runtime topology, frontend application isolation, backend solution structure, and architectural decisions."
+    required: true
+    documents:
+      - id: "02-system-architecture.architecture-style"
+        path: "specs/02-system-architecture/architecture-style.yaml"
+        schema_file: "schemas/02-system-architecture/architecture-style.schema.json"
+        status: "draft"
+      - id: "02-system-architecture.frontend-application-split"
+        path: "specs/02-system-architecture/frontend-application-split.yaml"
+        schema_file: "schemas/02-system-architecture/frontend-application-split.schema.json"
+        status: "draft"
+      - id: "02-system-architecture.backend-solution-structure"
+        path: "specs/02-system-architecture/backend-solution-structure.yaml"
+        schema_file: "schemas/02-system-architecture/backend-solution-structure.schema.json"
+        status: "draft"
+
+  - id: "03-domain"
+    path: "specs/03-domain"
+    schema_path: "schemas/03-domain"
+    purpose: "Defines business capability boundaries, aggregates, domain events, commands, queries, ownership rules, and operation workflows."
+    required: true
+    documents:
+      - id: "03-domain.station-order-routing"
+        path: "specs/03-domain/station-order-routing.yaml"
+        schema_file: "schemas/03-domain/station-order-routing.schema.json"
+        status: "draft"
+      - id: "03-domain.module-inventory"
+        path: "specs/03-domain/module-inventory.yaml"
+        schema_file: "schemas/03-domain/module-inventory.schema.json"
+        status: "draft"
+      - id: "03-domain.tenant-setup-workflows"
+        path: "specs/03-domain/tenant-setup-workflows.yaml"
+        schema_file: "schemas/03-domain/tenant-setup-workflows.schema.json"
+        status: "draft"
+      - id: "03-domain.customer-order-session-workflow"
+        path: "specs/03-domain/customer-order-session-workflow.yaml"
+        schema_file: "schemas/03-domain/customer-order-session-workflow.schema.json"
+        status: "draft"
+      - id: "03-domain.bill-session-workflow"
+        path: "specs/03-domain/bill-session-workflow.yaml"
+        schema_file: "schemas/03-domain/bill-session-workflow.schema.json"
+        status: "draft"
+
+  - id: "04-tenancy"
+    path: "specs/04-tenancy"
+    schema_path: "schemas/04-tenancy"
+    purpose: "Defines tenant resolution, tenant lifecycle, tenant isolation, provisioning, and tenant context propagation."
+    required: true
+    documents:
+      - id: "04-tenancy.tenant-resolution"
+        path: "specs/04-tenancy/tenant-resolution.yaml"
+        schema_file: "schemas/04-tenancy/tenant-resolution.schema.json"
+        status: "draft"
+      - id: "04-tenancy.tenant-lifecycle-provisioning"
+        path: "specs/04-tenancy/tenant-lifecycle-provisioning.yaml"
+        schema_file: "schemas/04-tenancy/tenant-lifecycle-provisioning.schema.json"
+        status: "draft"
+
+  - id: "05-identity-access"
+    path: "specs/05-identity-access"
+    schema_path: "schemas/05-identity-access"
+    purpose: "Defines authentication, authorization, user roles, permissions, activation, and session behavior."
+    required: true
+    documents:
+      - id: "05-identity-access.permission-catalog"
+        path: "specs/05-identity-access/permission-catalog.yaml"
+        schema_file: "schemas/05-identity-access/permission-catalog.schema.json"
+        status: "draft"
+      - id: "05-identity-access.tenant-staff-identity"
+        path: "specs/05-identity-access/tenant-staff-identity.yaml"
+        schema_file: "schemas/05-identity-access/tenant-staff-identity.schema.json"
+        status: "draft"
+
+  - id: "06-application-surfaces"
+    path: "specs/06-application-surfaces"
+    schema_path: "schemas/06-application-surfaces"
+    purpose: "Maps user-facing and device-facing application surfaces to capabilities, routes, permissions, and contracts."
+    required: true
+    documents:
+      - id: "06-application-surfaces.platform-control-plane"
+        path: "specs/06-application-surfaces/platform-control-plane.yaml"
+        schema_file: "schemas/06-application-surfaces/platform-control-plane.schema.json"
+        status: "draft"
+      - id: "06-application-surfaces.platform-provisioning-retry"
+        path: "specs/06-application-surfaces/platform-provisioning-retry.yaml"
+        schema_file: "schemas/06-application-surfaces/platform-provisioning-retry.schema.json"
+        status: "draft"
+      - id: "06-application-surfaces.platform-settings-catalog"
+        path: "specs/06-application-surfaces/platform-settings-catalog.yaml"
+        schema_file: "schemas/06-application-surfaces/platform-settings-catalog.schema.json"
+        status: "draft"
+      - id: "06-application-surfaces.platform-audit-catalog"
+        path: "specs/06-application-surfaces/platform-audit-catalog.yaml"
+        schema_file: "schemas/06-application-surfaces/platform-audit-catalog.schema.json"
+        status: "draft"
+      - id: "06-application-surfaces.tenant-setup-console"
+        path: "specs/06-application-surfaces/tenant-setup-console.yaml"
+        schema_file: "schemas/06-application-surfaces/tenant-setup-console.schema.json"
+        status: "draft"
+
+  - id: "07-api-contracts"
+    path: "specs/07-api-contracts"
+    schema_path: "schemas/07-api-contracts"
+    purpose: "Defines HTTP API contracts, request and response shapes, errors, pagination, idempotency, and authentication requirements."
+    required: true
+    documents:
+      - id: "07-api-contracts.platform-api"
+        path: "specs/07-api-contracts/platform-api.yaml"
+        schema_file: "schemas/07-api-contracts/platform-api.schema.json"
+        status: "draft"
+      - id: "07-api-contracts.tenant-setup-api"
+        path: "specs/07-api-contracts/tenant-setup-api.yaml"
+        schema_file: "schemas/07-api-contracts/tenant-setup-api.schema.json"
+        status: "draft"
+      - id: "07-api-contracts.tenant-staff-identity-api"
+        path: "specs/07-api-contracts/tenant-staff-identity-api.yaml"
+        schema_file: "schemas/07-api-contracts/tenant-staff-identity-api.schema.json"
+        status: "draft"
+      - id: "07-api-contracts.customer-order-api"
+        path: "specs/07-api-contracts/customer-order-api.yaml"
+        schema_file: "schemas/07-api-contracts/customer-order-api.schema.json"
+        status: "draft"
+      - id: "07-api-contracts.bill-session-api"
+        path: "specs/07-api-contracts/bill-session-api.yaml"
+        schema_file: "schemas/07-api-contracts/bill-session-api.schema.json"
+        status: "draft"
+
+  - id: "08-data-contracts"
+    path: "specs/08-data-contracts"
+    schema_path: "schemas/08-data-contracts"
+    purpose: "Defines database schemas, entity contracts, database change scripts, indexes, constraints, and data ownership."
+    required: true
+    documents:
+      - id: "08-data-contracts.platform-data"
+        path: "specs/08-data-contracts/platform-data.yaml"
+        schema_file: "schemas/08-data-contracts/platform-data.schema.json"
+        status: "draft"
+      - id: "08-data-contracts.tenant-setup-data"
+        path: "specs/08-data-contracts/tenant-setup-data.yaml"
+        schema_file: "schemas/08-data-contracts/tenant-setup-data.schema.json"
+        status: "draft"
+      - id: "08-data-contracts.customer-order-data"
+        path: "specs/08-data-contracts/customer-order-data.yaml"
+        schema_file: "schemas/08-data-contracts/customer-order-data.schema.json"
+        status: "draft"
+      - id: "08-data-contracts.bill-session-data"
+        path: "specs/08-data-contracts/bill-session-data.yaml"
+        schema_file: "schemas/08-data-contracts/bill-session-data.schema.json"
+        status: "draft"
+
+  - id: "09-realtime-device-contracts"
+    path: "specs/09-realtime-device-contracts"
+    schema_path: "schemas/09-realtime-device-contracts"
+    purpose: "Defines realtime messaging, WebSocket contracts, ESP32 table device behavior, and device identity."
+    required: true
+    documents:
+      - id: "09-realtime-device-contracts.esp32-device-identity"
+        path: "specs/09-realtime-device-contracts/esp32-device-identity.yaml"
+        schema_file: "schemas/09-realtime-device-contracts/esp32-device-identity.schema.json"
+        status: "draft"
+
+  - id: "10-implementation-plan"
+    path: "specs/10-implementation-plan"
+    schema_path: "schemas/10-implementation-plan"
+    purpose: "Defines implementation task order, dependencies, files, commands, validation, and done criteria for LLM coding agents."
+    required: true
+    documents: []
+
+  - id: "11-testing-verification"
+    path: "specs/11-testing-verification"
+    schema_path: "schemas/11-testing-verification"
+    purpose: "Defines unit, integration, contract, database change, end-to-end, security, and operational verification requirements."
+    required: true
+    documents:
+      - id: "11-testing-verification.acceptance-criteria"
+        path: "specs/11-testing-verification/acceptance-criteria.yaml"
+        schema_file: "schemas/11-testing-verification/acceptance-criteria.schema.json"
+        status: "draft"
+      - id: "11-testing-verification.test-taxonomy"
+        path: "specs/11-testing-verification/test-taxonomy.yaml"
+        schema_file: "schemas/11-testing-verification/test-taxonomy.schema.json"
+        status: "draft"
+
+  - id: "12-operations-deployment"
+    path: "specs/12-operations-deployment"
+    schema_path: "schemas/12-operations-deployment"
+    purpose: "Defines Ubuntu VPS deployment, configuration, health checks, recovery, backups, secret rotation, and maintenance."
+    required: true
+    documents:
+      - id: "12-operations-deployment.health-checks"
+        path: "specs/12-operations-deployment/health-checks.yaml"
+        schema_file: "schemas/12-operations-deployment/health-checks.schema.json"
+        status: "draft"
+      - id: "12-operations-deployment.slo-recovery-targets"
+        path: "specs/12-operations-deployment/slo-recovery-targets.yaml"
+        schema_file: "schemas/12-operations-deployment/slo-recovery-targets.schema.json"
+        status: "draft"
+
+  - id: "13-security-compliance"
+    path: "specs/13-security-compliance"
+    schema_path: "schemas/13-security-compliance"
+    purpose: "Defines security constraints, threat controls, auditability, data protection, and compliance boundaries."
+    required: true
+    documents:
+      - id: "13-security-compliance.customer-access-security"
+        path: "specs/13-security-compliance/customer-access-security.yaml"
+        schema_file: "schemas/13-security-compliance/customer-access-security.schema.json"
+        status: "draft"
+
+  - id: "14-ui-ux-system"
+    path: "specs/14-ui-ux-system"
+    schema_path: "schemas/14-ui-ux-system"
+    purpose: "Defines UI system rules, layout principles, component conventions, accessibility rules, and interaction patterns."
+    required: true
+    documents: []
+
+  - id: "15-engineering-rules"
+    path: "specs/15-engineering-rules"
+    schema_path: "schemas/15-engineering-rules"
+    purpose: "Defines coding standards, naming conventions, dependency rules, error handling, logging, and repository conventions."
+    required: true
+    documents:
+      - id: "15-engineering-rules.technology-version-baseline"
+        path: "specs/15-engineering-rules/technology-version-baseline.yaml"
+        schema_file: "schemas/15-engineering-rules/technology-version-baseline.schema.json"
+        status: "draft"
+
+  - id: "16-research-decisions"
+    path: "specs/16-research-decisions"
+    schema_path: "schemas/16-research-decisions"
+    purpose: "Defines researched technical decisions, accepted recommendations, rejected options, and source-grounded decision records."
+    required: true
+    documents:
+      - id: "16-research-decisions.background-cache-locking-decision"
+        path: "specs/16-research-decisions/background-cache-locking-decision.yaml"
+        schema_file: "schemas/16-research-decisions/background-cache-locking-decision.schema.json"
+        status: "draft"
+
+folder_creation_policy:
+  rule: "A specification section folder MAY exist before documents are added. Empty section folders are allowed only as repository structure markers."
+
+schema_policy:
+  rule: "Every YAML specification document MUST have a matching JSON Schema file."
+  schema_location_rule: "Schema files MUST mirror specification section paths under the schemas root."
+
+open_items: []

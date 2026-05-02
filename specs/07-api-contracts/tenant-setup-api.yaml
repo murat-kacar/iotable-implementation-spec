@@ -1,0 +1,374 @@
+document:
+  id: "07-api-contracts.tenant-setup-api"
+  title: "IoTable Tenant Setup API Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/07-api-contracts/tenant-setup-api.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant internal API contracts for setup status, business profile, operating defaults, tables, stations, menu, assets, staff invites, firmware download, and operations activation."
+  applies_to:
+    - "tenant_setup_console"
+    - "tenant_internal_api"
+    - "tenant_setup_data"
+    - "tenant_database_isolation"
+    - "table_specific_firmware_generation"
+
+api_family:
+  route_root: "https://{tenant}.iotables.net/api/internal"
+  tenant_resolution: "subdomain"
+  database_context: "resolved_tenant_database_only"
+  authentication_required: true
+  authorization_model: "permission_based"
+  rules:
+    - "Tenant setup API MUST be served only from the tenant domain."
+    - "Tenant setup API MUST NOT be served from platform.iotables.net."
+    - "Tenant setup API MUST resolve exactly one tenant database from the request subdomain."
+    - "Tenant setup API MUST NOT query or mutate another tenant database."
+    - "Tenant setup API MUST NOT store tenant operational data in the platform database."
+    - "Tenant setup API MUST enforce permissions, not role names."
+
+common_contract_rules:
+  id_format: "uuid"
+  timestamp_format: "iso_8601_utc"
+  request_body_format: "json"
+  response_body_format: "json"
+  error_format: "problem_details"
+  idempotency:
+    required_for:
+      - "operations_activation"
+      - "firmware_generation"
+      - "firmware_download"
+      - "staff_invite_creation"
+  rules:
+    - "Mutation endpoints SHOULD return the updated resource or operation result."
+    - "Validation errors MUST use ProblemDetails."
+    - "Secret fields MUST NOT be returned except inside explicit firmware artifact download responses."
+    - "Firmware artifact responses MUST be non-cacheable."
+
+common_error_contract:
+  format: "problem_details"
+  content_type: "application/problem+json"
+  fields:
+    - "type"
+    - "title"
+    - "status"
+    - "detail"
+    - "instance"
+    - "correlationId"
+    - "errors"
+  rules:
+    - "Every tenant setup API error response with a JSON body MUST use application/problem+json."
+    - "Validation failures MUST return 400 with field-level errors."
+    - "Authentication failures MUST return 401."
+    - "Authorization failures MUST return 403."
+    - "Missing resources MUST return 404."
+    - "State conflicts and idempotency conflicts MUST return 409."
+    - "Unexpected failures MUST return 500 with correlationId."
+
+endpoints:
+  setup_status:
+    - id: "TSA-001"
+      method: "GET"
+      path: "/setup/status"
+      required_permission: "tenant.setup.view"
+      purpose: "Return setup progress, completed steps, activation status, and blocking activation gates."
+      response: "TenantSetupStatusResponse"
+
+  business_profile:
+    - id: "TSA-010"
+      method: "GET"
+      path: "/setup/business-profile"
+      required_permission: "tenant.setup.view"
+      purpose: "Return tenant business profile and operating identity fields."
+      response: "BusinessProfileResponse"
+    - id: "TSA-011"
+      method: "PATCH"
+      path: "/setup/business-profile"
+      required_permission: "tenant.profile.update"
+      purpose: "Update tenant business profile."
+      request: "UpdateBusinessProfileRequest"
+      response: "BusinessProfileResponse"
+
+  operating_defaults:
+    - id: "TSA-020"
+      method: "PATCH"
+      path: "/setup/operating-defaults"
+      required_permission: "tenant.profile.update"
+      purpose: "Update default service mode, tax display mode, and optional operating defaults."
+      request: "UpdateOperatingDefaultsRequest"
+      response: "OperatingDefaultsResponse"
+
+  assets:
+    - id: "TSA-030"
+      method: "POST"
+      path: "/assets/images"
+      required_permission: "tenant.menu.items.create"
+      purpose: "Upload an internal tenant image asset for menu item images or tenant setup visuals."
+      request: "UploadImageAssetRequest"
+      response: "ImageAssetResponse"
+      rules:
+        - "Image upload MUST store the asset in tenant-scoped storage or tenant-owned asset namespace."
+        - "Image upload MUST return image_asset_id."
+        - "Menu item creation MUST use image_asset_id."
+
+  tables:
+    - id: "TSA-100"
+      method: "GET"
+      path: "/tables"
+      required_permission: "tenant.tables.view"
+      purpose: "List tenant tables including operational and system test tables."
+      response: "TableListResponse"
+    - id: "TSA-101"
+      method: "POST"
+      path: "/tables"
+      required_permission: "tenant.tables.create"
+      purpose: "Create an operational table and optionally generate table-specific ESP32 firmware when has_qr_device=true."
+      request: "CreateTableRequest"
+      response: "TableResponse"
+      idempotency_required: true
+      rules:
+        - "If table creation generates firmware immediately, the actor MUST also have tenant.firmware.generate."
+    - id: "TSA-102"
+      method: "PATCH"
+      path: "/tables/{tableId}"
+      required_permission: "tenant.tables.update"
+      purpose: "Update table display, status, QR-device option, or operational metadata."
+      request: "UpdateTableRequest"
+      response: "TableResponse"
+    - id: "TSA-103"
+      method: "POST"
+      path: "/tables/{tableId}/firmware/generate"
+      required_permission: "tenant.firmware.generate"
+      purpose: "Generate or regenerate table-specific ESP32 firmware for a table with QR device enabled."
+      request: "GenerateFirmwareRequest"
+      response: "FirmwareGenerationResponse"
+      idempotency_required: true
+      rules:
+        - "Firmware generation MUST be limited to tenant_owner and tenant_admin through fixed role-permission bundles."
+        - "Firmware regeneration MUST revoke old device secret."
+        - "Firmware generation MUST be audited."
+    - id: "TSA-104"
+      method: "POST"
+      path: "/tables/{tableId}/firmware/download"
+      required_permission: "tenant.firmware.download"
+      purpose: "Download the table-specific firmware artifact as a secret, audited, non-cacheable response."
+      request: "DownloadFirmwareRequest"
+      response: "FirmwareDownloadResponse"
+      idempotency_required: true
+      cache_policy: "no_store"
+      rules:
+        - "Firmware download MUST be limited to tenant_owner and tenant_admin through fixed role-permission bundles."
+        - "Firmware download MUST use POST, not GET."
+        - "Firmware download MUST be audited."
+        - "Firmware artifact MUST be treated as a secret."
+        - "Firmware response MUST NOT be cached."
+
+  stations:
+    - id: "TSA-200"
+      method: "GET"
+      path: "/stations"
+      required_permission: "tenant.stations.view"
+      purpose: "List fulfillment stations."
+      response: "StationListResponse"
+    - id: "TSA-201"
+      method: "POST"
+      path: "/stations"
+      required_permission: "tenant.stations.create"
+      purpose: "Create a station."
+      request: "CreateStationRequest"
+      response: "StationResponse"
+    - id: "TSA-202"
+      method: "PATCH"
+      path: "/stations/{stationId}"
+      required_permission: "tenant.stations.update"
+      purpose: "Update station details or status."
+      request: "UpdateStationRequest"
+      response: "StationResponse"
+
+  menu_categories:
+    - id: "TSA-300"
+      method: "GET"
+      path: "/menu/categories"
+      required_permission: "tenant.menu.view"
+      purpose: "List menu categories."
+      response: "MenuCategoryListResponse"
+    - id: "TSA-301"
+      method: "POST"
+      path: "/menu/categories"
+      required_permission: "tenant.menu.categories.manage"
+      purpose: "Create a menu category."
+      request: "CreateMenuCategoryRequest"
+      response: "MenuCategoryResponse"
+    - id: "TSA-302"
+      method: "PATCH"
+      path: "/menu/categories/{categoryId}"
+      required_permission: "tenant.menu.categories.manage"
+      purpose: "Update menu category details or status."
+      request: "UpdateMenuCategoryRequest"
+      response: "MenuCategoryResponse"
+
+  menu_items:
+    - id: "TSA-400"
+      method: "GET"
+      path: "/menu/items"
+      required_permission: "tenant.menu.view"
+      purpose: "List menu items, price, image, orderability, and station routing."
+      response: "MenuItemListResponse"
+    - id: "TSA-401"
+      method: "POST"
+      path: "/menu/items"
+      required_permission: "tenant.menu.items.create"
+      purpose: "Create a menu item."
+      request: "CreateMenuItemRequest"
+      response: "MenuItemResponse"
+    - id: "TSA-402"
+      method: "PATCH"
+      path: "/menu/items/{itemId}"
+      required_permission: "tenant.menu.items.update"
+      purpose: "Update menu item details, price, image, status, orderability, or station routing."
+      request: "UpdateMenuItemRequest"
+      response: "MenuItemResponse"
+      rules:
+        - "Orderable menu item MUST have price."
+        - "Orderable menu item MUST have image_asset_id."
+        - "Orderable menu item MUST route to one active station."
+
+  staff_invites:
+    - id: "TSA-500"
+      method: "POST"
+      path: "/staff/invites"
+      required_permissions:
+        - "tenant.staff.invite"
+        - "tenant.staff.assign_roles"
+      purpose: "Create one or more tenant staff invitations from setup quick-add or staff administration."
+      request: "CreateStaffInvitesRequest"
+      response: "StaffInviteListResponse"
+      idempotency_required: true
+      rules:
+        - "tenant_owner role MUST NOT be assignable from staff invite API."
+        - "Platform roles MUST NOT be assignable from tenant staff invite API."
+
+  activation:
+    - id: "TSA-600"
+      method: "GET"
+      path: "/setup/activation-gates"
+      required_permission: "tenant.setup.view"
+      purpose: "Return operations activation gate status and blockers."
+      response: "ActivationGatesResponse"
+    - id: "TSA-601"
+      method: "POST"
+      path: "/setup/activate-operations"
+      required_permission: "tenant.setup.complete"
+      purpose: "Activate tenant operations when all required setup gates pass."
+      request: "ActivateOperationsRequest"
+      response: "ActivateOperationsResponse"
+      idempotency_required: true
+      rules:
+        - "Activation MUST run gate checks against the resolved tenant database only."
+        - "Activation MUST fail if required gates do not pass."
+        - "Activation MUST be audited."
+
+request_response_contracts:
+  CreateTableRequest:
+    required:
+      - "table_number"
+      - "has_qr_device"
+    optional:
+      - "display_name"
+      - "area_or_section"
+      - "seat_capacity"
+      - "wifi_ssid"
+      - "wifi_password"
+    rules:
+      - "wifi_ssid and wifi_password are required when has_qr_device=true and firmware is generated immediately."
+      - "wifi_ssid and wifi_password MUST NOT be logged."
+  TableResponse:
+    fields:
+      - "table_id"
+      - "table_number"
+      - "table_code"
+      - "display_name"
+      - "table_type"
+      - "status"
+      - "has_qr_device"
+      - "customer_self_ordering_enabled"
+      - "staff_pda_ordering_enabled"
+      - "device_status"
+      - "created_at_utc"
+      - "updated_at_utc"
+  FirmwareDownloadResponse:
+    content_type: "application/octet-stream_or_text_plain_ino"
+    cache_policy: "no_store"
+    contains_secret_material: true
+  CreateMenuItemRequest:
+    required:
+      - "category_id"
+      - "name"
+      - "image_asset_id"
+      - "orderable"
+    required_when_orderable:
+      - "price_amount"
+      - "station_id"
+    optional:
+      - "description"
+      - "sort_order"
+      - "non_orderable_badge"
+  CreateStaffInvitesRequest:
+    batch_supported: true
+    items_required_fields:
+      - "display_name"
+      - "email"
+      - "role"
+    items_optional_fields:
+      - "phone"
+      - "station_id"
+
+security_and_audit:
+  rules:
+    - "All tenant setup API mutations MUST be authenticated."
+    - "All tenant setup API mutations MUST enforce tenant permissions."
+    - "Firmware generation, firmware download, operations activation, and staff invites MUST be audited."
+    - "Wi-Fi credentials, firmware secrets, device secrets, and invite tokens MUST NOT be logged in plaintext."
+    - "Firmware download responses MUST include no-store cache headers."
+
+forbidden_behavior:
+  - "tenant_setup_api_on_platform_domain"
+  - "tenant_setup_api_using_platform_database_for_tenant_operational_data"
+  - "tenant_setup_api_cross_tenant_query"
+  - "firmware_generation_authorized_by_table_update_permission_only"
+  - "firmware_download_authorized_by_table_update_permission_only"
+  - "firmware_permission_granted_to_tenant_manager_initial_version"
+  - "firmware_download_get_endpoint"
+  - "firmware_download_cacheable_response"
+  - "plaintext_wifi_credentials_logging"
+  - "plaintext_device_secret_logging"
+  - "tenant_owner_role_invite_from_staff_api"
+  - "platform_role_invite_from_tenant_api"
+  - "orderable_menu_item_without_price"
+  - "orderable_menu_item_without_image"
+  - "orderable_menu_item_without_station_routing"
+
+open_decisions: []
+
+done_when:
+  - "tenant_setup_api_family_is_defined"
+  - "common_contract_rules_are_defined"
+  - "setup_status_endpoints_are_defined"
+  - "business_profile_endpoints_are_defined"
+  - "operating_defaults_endpoints_are_defined"
+  - "asset_image_upload_endpoint_is_defined"
+  - "table_endpoints_are_defined"
+  - "firmware_generation_and_download_endpoints_are_defined"
+  - "station_endpoints_are_defined"
+  - "menu_category_endpoints_are_defined"
+  - "menu_item_endpoints_are_defined"
+  - "staff_invite_endpoint_is_defined"
+  - "activation_endpoints_are_defined"
+  - "request_response_contracts_are_defined"
+  - "security_and_audit_rules_are_defined"
+  - "forbidden_api_behavior_is_defined"

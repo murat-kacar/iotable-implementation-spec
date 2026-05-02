@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/03-domain/tenant-setup-workflows.schema.json",
+  "title": "IoTable Tenant Setup Workflows Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "workflow_policy",
+    "commands",
+    "seed_workflows",
+    "setup_progress_evaluation",
+    "activation_gate_evaluation",
+    "workflows",
+    "domain_events",
+    "audit_required_for",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "type": "object", "additionalProperties": true },
+    "purpose": { "type": "object", "additionalProperties": true },
+    "workflow_policy": { "type": "object", "additionalProperties": true },
+    "commands": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "seed_workflows": { "type": "object", "additionalProperties": true },
+    "setup_progress_evaluation": { "type": "object", "additionalProperties": true },
+    "activation_gate_evaluation": { "type": "object", "additionalProperties": true },
+    "workflows": { "type": "object", "additionalProperties": true },
+    "domain_events": { "type": "array", "items": { "type": "string" } },
+    "audit_required_for": { "type": "array", "items": { "type": "string" } },
+    "forbidden_behavior": { "type": "array", "items": { "type": "string" } },
+    "open_decisions": { "type": "array" },
+    "done_when": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/00-meta/specification-constitution.schema.json",
+  "title": "IoTable Specification Constitution Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "product_identity",
+    "specification_purpose",
+    "source_of_truth_policy",
+    "missing_information_policy",
+    "research_policy",
+    "document_final_state_policy",
+    "format_policy",
+    "branch_policy",
+    "writing_policy",
+    "llm_execution_policy",
+    "session_context_policy",
+    "architecture_documentation_policy",
+    "engineering_principles",
+    "done_definition",
+    "open_decisions"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "product_identity": { "$ref": "#/$defs/product_identity" },
+    "specification_purpose": { "$ref": "#/$defs/specification_purpose" },
+    "source_of_truth_policy": { "$ref": "#/$defs/source_of_truth_policy" },
+    "missing_information_policy": { "$ref": "#/$defs/object_record" },
+    "research_policy": { "$ref": "#/$defs/object_record" },
+    "document_final_state_policy": { "$ref": "#/$defs/object_record" },
+    "format_policy": { "$ref": "#/$defs/object_record" },
+    "branch_policy": { "$ref": "#/$defs/object_record" },
+    "writing_policy": { "$ref": "#/$defs/object_record" },
+    "llm_execution_policy": { "$ref": "#/$defs/object_record" },
+    "session_context_policy": { "$ref": "#/$defs/session_context_policy" },
+    "architecture_documentation_policy": { "$ref": "#/$defs/object_record" },
+    "engineering_principles": { "$ref": "#/$defs/engineering_principles" },
+    "done_definition": { "$ref": "#/$defs/object_record" },
+    "open_decisions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/open_decision" }
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "object_record": {
+      "type": "object",
+      "additionalProperties": true,
+      "minProperties": 1
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "00-meta.specification-constitution" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/00-meta/specification-constitution.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "product_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_name", "canonical_definition", "platform_domain", "tenant_domain_pattern"],
+      "properties": {
+        "canonical_name": { "type": "string", "const": "IoTable" },
+        "canonical_definition": { "type": "string", "const": "IoTable is a multi-tenant cafe and restaurant operations platform." },
+        "platform_domain": { "type": "string", "const": "platform.iotables.net" },
+        "tenant_domain_pattern": { "type": "string", "const": "{tenant}.iotables.net" }
+      }
+    },
+    "specification_purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_purpose", "intended_reader", "non_intended_reader", "code_generation_binding", "code_must_follow_specification", "specification_precedes_code"],
+      "properties": {
+        "primary_purpose": { "type": "string", "minLength": 1 },
+        "intended_reader": { "$ref": "#/$defs/string_array" },
+        "non_intended_reader": { "$ref": "#/$defs/string_array" },
+        "code_generation_binding": { "type": "boolean", "const": true },
+        "code_must_follow_specification": { "type": "boolean", "const": true },
+        "specification_precedes_code": { "type": "boolean", "const": true }
+      }
+    },
+    "source_of_truth_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["highest_authority", "project_owner", "source_priority_order", "llm_memory_authority", "llm_output_authority", "rule"],
+      "properties": {
+        "highest_authority": { "type": "string", "const": "project_owner" },
+        "project_owner": { "type": "string", "const": "user" },
+        "source_priority_order": { "$ref": "#/$defs/string_array" },
+        "llm_memory_authority": { "type": "string", "const": "none" },
+        "llm_output_authority": { "type": "string", "const": "none" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "session_context_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "required_behavior"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "required_behavior": { "type": "string", "minLength": 1 }
+      }
+    },
+    "engineering_principles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architecture", "code_quality", "api_and_contracts", "security", "testing", "operations", "documentation"],
+      "properties": {
+        "architecture": { "$ref": "#/$defs/string_array" },
+        "code_quality": { "$ref": "#/$defs/string_array" },
+        "api_and_contracts": { "$ref": "#/$defs/string_array" },
+        "security": { "$ref": "#/$defs/string_array" },
+        "testing": { "$ref": "#/$defs/string_array" },
+        "operations": { "$ref": "#/$defs/string_array" },
+        "documentation": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "open_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^OD-[0-9]{3}$" },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,141 @@
+document:
+  id: "00-meta.llm-execution-policy"
+  title: "IoTable LLM Execution Policy"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/00-meta/llm-execution-policy.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define mandatory behavior for LLM agents that create, modify, or use the IoTable Implementation Specification."
+  applies_to:
+    - "specification_authoring_agents"
+    - "coding_agents"
+    - "review_agents"
+    - "research_agents"
+
+session_bootstrap:
+  rule: "No IoTable specification work may start before the required meta documents are loaded from the repository."
+  required_reads:
+    - "specs/00-meta/specification-constitution.yaml"
+    - "specs/00-meta/documentation-index.yaml"
+    - "specs/00-meta/source-policy.yaml"
+    - "specs/00-meta/research-policy.yaml"
+    - "specs/00-meta/llm-execution-policy.yaml"
+  memory_policy: "Repository files are binding. LLM memory is not binding."
+
+execution_modes:
+  - id: "specification_authoring"
+    description: "The agent creates or modifies specification documents."
+    required_behaviors:
+      - "read_meta_documents"
+      - "preserve_final_state_wording"
+      - "write_machine_readable_yaml"
+      - "write_matching_json_schema"
+      - "avoid_unapproved_product_decisions"
+      - "record_open_decisions_when_needed"
+
+  - id: "technical_research"
+    description: "The agent researches technical, convention, or stack-specific decisions."
+    required_behaviors:
+      - "use_authoritative_sources"
+      - "separate_fact_from_recommendation"
+      - "record_options_and_tradeoffs"
+      - "mark_product_decisions_for_owner"
+
+  - id: "implementation_execution"
+    description: "The agent implements code from the specification."
+    required_behaviors:
+      - "follow_task_order"
+      - "create_specified_files"
+      - "modify_specified_files"
+      - "write_required_tests"
+      - "run_verification_commands"
+      - "report_blockers"
+
+allowed_actions:
+  - "read_repository_files"
+  - "create_specification_files"
+  - "update_specification_files"
+  - "create_matching_schema_files"
+  - "update_matching_schema_files"
+  - "research_authoritative_sources"
+  - "record_decision_options"
+  - "recommend_technical_options"
+  - "report_blockers"
+
+prohibited_actions:
+  - "rely_on_memory_for_binding_rules"
+  - "invent_product_behavior"
+  - "invent_role_permission"
+  - "invent_api_contract"
+  - "invent_database_field"
+  - "skip_required_schema"
+  - "write_freeform_unvalidated_specification"
+  - "introduce_external_context_dependency"
+  - "use_chronology_based_wording"
+  - "use_patch_style_wording"
+  - "hide_uncertainty"
+  - "skip_verification_when_verification_is_defined"
+
+blocker_policy:
+  rule: "A blocker record is required when execution cannot continue without inventing product behavior or violating a binding rule."
+  blocker_required_when:
+    - "product_behavior_missing"
+    - "owner_decision_required"
+    - "source_conflict_affects_requirement"
+    - "technical_claim_requires_current_research"
+    - "schema_contract_missing"
+    - "task_dependency_missing"
+  blocker_record_required_fields:
+    - "blocker_id"
+    - "blocked_area"
+    - "reason"
+    - "required_decision_or_source"
+    - "safe_next_action"
+
+specification_write_rules:
+  - id: "SWR-001"
+    rule: "Every YAML specification file MUST declare its matching JSON Schema path."
+  - id: "SWR-002"
+    rule: "Every specification file MUST be written as current final system state."
+  - id: "SWR-003"
+    rule: "Every added field MUST be represented in the matching schema."
+  - id: "SWR-004"
+    rule: "Every open product behavior MUST be recorded as an open decision."
+  - id: "SWR-005"
+    rule: "Every implementation task MUST include done_when criteria before it can be used by a coding agent."
+
+implementation_task_execution_rules:
+  - id: "ITER-001"
+    rule: "The coding agent MUST implement tasks in dependency order."
+  - id: "ITER-002"
+    rule: "The coding agent MUST NOT implement unspecified API behavior."
+  - id: "ITER-003"
+    rule: "The coding agent MUST NOT add packages that are not allowed by the specification."
+  - id: "ITER-004"
+    rule: "The coding agent MUST run verification commands when specified."
+  - id: "ITER-005"
+    rule: "The coding agent MUST report a blocker instead of guessing."
+
+reporting_policy:
+  required_report_sections:
+    - "files_read"
+    - "files_created"
+    - "files_updated"
+    - "decisions_used"
+    - "open_blockers"
+    - "validation_status"
+  rule: "Agent reports MUST be concise, factual, and tied to repository files."
+
+done_when:
+  - "session_bootstrap_is_defined"
+  - "execution_modes_are_defined"
+  - "allowed_actions_are_defined"
+  - "prohibited_actions_are_defined"
+  - "blocker_policy_is_defined"
+  - "specification_write_rules_are_defined"
+  - "implementation_task_execution_rules_are_defined"

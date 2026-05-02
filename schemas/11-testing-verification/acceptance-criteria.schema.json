@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/11-testing-verification/acceptance-criteria.schema.json",
+  "title": "IoTable Acceptance Criteria Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "governance",
+    "criteria",
+    "open_questions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/purpose" },
+    "governance": { "$ref": "#/$defs/governance" },
+    "criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/criterion" }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/open_question" }
+    },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "11-testing-verification.acceptance-criteria" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/11-testing-verification/acceptance-criteria.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "applies_to"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "applies_to": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id_format", "stability_rule", "source_rule", "granularity_rule", "change_rule"],
+      "properties": {
+        "id_format": { "type": "string", "const": "AC-[0-9]{3}" },
+        "stability_rule": { "type": "string", "minLength": 1 },
+        "source_rule": { "type": "string", "minLength": 1 },
+        "granularity_rule": { "type": "string", "minLength": 1 },
+        "change_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "statement", "verification_type", "source_refs"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^AC-[0-9]{3}$" },
+        "category": {
+          "type": "string",
+          "enum": [
+            "tenancy",
+            "route_namespace",
+            "authorization",
+            "customer_access",
+            "bill_ordering",
+            "payment_scope",
+            "device",
+            "frontend_stack"
+          ]
+        },
+        "statement": { "type": "string", "minLength": 1 },
+        "verification_type": {
+          "type": "string",
+          "enum": ["unit", "integration", "contract", "end_to_end", "security", "release_gate"]
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "open_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question", "owner"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^AC-Q-[0-9]{3}$" },
+        "question": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

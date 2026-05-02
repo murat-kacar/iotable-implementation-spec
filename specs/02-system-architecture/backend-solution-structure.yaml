@@ -1,0 +1,326 @@
+document:
+  id: "02-system-architecture.backend-solution-structure"
+  title: "IoTable Backend Solution Structure"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/02-system-architecture/backend-solution-structure.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the backend solution, runtime hosts, module project layout, dependency boundaries, and repository folder structure for IoTable."
+  applies_to:
+    - "backend_application"
+    - "modular_monolith"
+    - "background_jobs"
+    - "module_boundaries"
+    - "llm_coding_agent_implementation"
+
+backend_stack:
+  runtime: ".NET 10"
+  api_host_framework: "ASP.NET Core"
+  database_engine: "PostgreSQL 17"
+  orm: "Entity Framework Core"
+  background_jobs: "Hangfire with PostgreSQL storage"
+  distributed_cache: "Redis through IDistributedCache"
+  critical_platform_job_locking: "PostgreSQL advisory locks"
+  architecture_style: "modular_monolith"
+  module_internal_architecture: "clean_architecture_per_module"
+
+solution_policy:
+  one_solution: true
+  solution_file: "src/backend/IoTable.sln"
+  backend_codebase_model: "single_modular_monolith_solution"
+  runtime_hosts:
+    - "IoTable.Api"
+    - "IoTable.Worker"
+  api_host_project_required: true
+  worker_host_project_required: true
+  module_folder_per_business_capability: true
+  clean_architecture_inside_each_module: true
+  direct_cross_module_database_write_allowed: false
+  rules:
+    - "IoTable backend MUST be implemented as one .NET solution."
+    - "IoTable backend MUST use a modular monolith architecture."
+    - "IoTable backend MUST have two runtime host projects: IoTable.Api and IoTable.Worker."
+    - "IoTable.Api MUST be the single HTTP API host."
+    - "IoTable.Worker MUST be the background job host."
+    - "Business capability modules MUST be implemented as separate class library groups."
+    - "Each business module SHOULD expose Domain, Application, Infrastructure, and Api projects unless a documented exception exists."
+    - "Modules MUST NOT directly mutate another module's owned data."
+    - "Cross-module behavior MUST use documented application contracts or in-process domain events."
+
+technology_decision_references:
+  - id: "TDR-001"
+    topic: "Background jobs, cache, and locking"
+    canonical_document: "specs/16-research-decisions/background-cache-locking-decision.yaml"
+
+repository_layout:
+  root:
+    - "specs/"
+    - "schemas/"
+    - "src/"
+    - "tests/"
+    - "tools/"
+  backend_source_root: "src/backend"
+  backend_test_root: "tests/backend"
+  structure:
+    src_backend:
+      - "src/backend/IoTable.sln"
+      - "src/backend/hosts/IoTable.Api/"
+      - "src/backend/hosts/IoTable.Worker/"
+      - "src/backend/building-blocks/"
+      - "src/backend/modules/"
+    tests_backend:
+      - "tests/backend/unit/"
+      - "tests/backend/integration/"
+      - "tests/backend/contracts/"
+      - "tests/backend/architecture/"
+
+host_projects:
+  - id: "IoTable.Api"
+    path: "src/backend/hosts/IoTable.Api"
+    type: "aspnet_core_http_host"
+    responsibilities:
+      - "platform_api"
+      - "tenant_internal_api"
+      - "customer_public_api"
+      - "device_realtime_endpoint"
+      - "health_checks"
+      - "authentication_entrypoints"
+      - "authorization_policy_enforcement"
+    rules:
+      - "IoTable.Api MUST compose module API endpoints."
+      - "IoTable.Api MUST NOT contain business rules directly."
+      - "IoTable.Api MUST call module application services."
+      - "IoTable.Api MUST expose health endpoints."
+  - id: "IoTable.Worker"
+    path: "src/backend/hosts/IoTable.Worker"
+    type: "background_job_host"
+    background_job_library: "Hangfire"
+    background_job_storage: "PostgreSQL"
+    responsibilities:
+      - "tenant_provisioning_jobs"
+      - "tenant_schema_change_jobs"
+      - "maintenance_jobs"
+      - "scheduled_operational_tasks"
+    rules:
+      - "IoTable.Worker MUST execute platform-owned background jobs."
+      - "IoTable.Worker MUST NOT expose HTTP API endpoints."
+      - "IoTable.Worker MUST use module application services or documented job contracts."
+      - "IoTable.Worker MUST use Hangfire with PostgreSQL storage for background processing."
+
+building_blocks:
+  - id: "IoTable.BuildingBlocks.Domain"
+    path: "src/backend/building-blocks/IoTable.BuildingBlocks.Domain"
+    purpose: "Shared domain primitives without product-specific business ownership."
+    allowed_contents:
+      - "Entity"
+      - "ValueObject"
+      - "DomainEvent"
+      - "Result"
+      - "DomainException"
+  - id: "IoTable.BuildingBlocks.Application"
+    path: "src/backend/building-blocks/IoTable.BuildingBlocks.Application"
+    purpose: "Shared application abstractions."
+    allowed_contents:
+      - "Command"
+      - "Query"
+      - "ApplicationResult"
+      - "Clock abstraction"
+      - "Current user abstraction"
+      - "Validation abstractions"
+  - id: "IoTable.BuildingBlocks.Infrastructure"
+    path: "src/backend/building-blocks/IoTable.BuildingBlocks.Infrastructure"
+    purpose: "Shared infrastructure adapters and cross-cutting implementations."
+    allowed_contents:
+      - "PostgreSQL helpers"
+      - "Outbox infrastructure"
+      - "Idempotency infrastructure"
+      - "Logging helpers"
+      - "Correlation id handling"
+      - "Redis cache abstractions"
+      - "Hangfire registration helpers"
+  - id: "IoTable.BuildingBlocks.Api"
+    path: "src/backend/building-blocks/IoTable.BuildingBlocks.Api"
+    purpose: "Shared API primitives."
+    allowed_contents:
+      - "ProblemDetails mapping"
+      - "Endpoint conventions"
+      - "Pagination contracts"
+      - "Request correlation middleware"
+
+module_project_pattern:
+  root_pattern: "src/backend/modules/{ModuleName}"
+  projects:
+    - suffix: "Domain"
+      path_pattern: "src/backend/modules/{ModuleName}/IoTable.{ModuleName}.Domain"
+      allowed_dependencies:
+        - "IoTable.BuildingBlocks.Domain"
+      forbidden_dependencies:
+        - "ASP.NET Core"
+        - "Entity Framework Core"
+        - "Npgsql"
+        - "other_module_infrastructure"
+    - suffix: "Application"
+      path_pattern: "src/backend/modules/{ModuleName}/IoTable.{ModuleName}.Application"
+      allowed_dependencies:
+        - "IoTable.{ModuleName}.Domain"
+        - "IoTable.BuildingBlocks.Application"
+        - "IoTable.BuildingBlocks.Domain"
+      forbidden_dependencies:
+        - "ASP.NET Core controllers/endpoints"
+        - "Entity Framework Core concrete DbContext"
+    - suffix: "Infrastructure"
+      path_pattern: "src/backend/modules/{ModuleName}/IoTable.{ModuleName}.Infrastructure"
+      allowed_dependencies:
+        - "IoTable.{ModuleName}.Domain"
+        - "IoTable.{ModuleName}.Application"
+        - "IoTable.BuildingBlocks.Infrastructure"
+      responsibilities:
+        - "persistence"
+        - "database mappings"
+        - "external adapters"
+        - "module repository implementations"
+    - suffix: "Api"
+      path_pattern: "src/backend/modules/{ModuleName}/IoTable.{ModuleName}.Api"
+      allowed_dependencies:
+        - "IoTable.{ModuleName}.Application"
+        - "IoTable.BuildingBlocks.Api"
+      responsibilities:
+        - "endpoint registration"
+        - "request response mapping"
+        - "authorization policy usage"
+
+modules:
+  platform_scope:
+    - "Platform"
+    - "PlatformProvisioning"
+    - "PlatformSchemaOrchestration"
+    - "PlatformIdentityAccess"
+    - "PlatformAudit"
+    - "PlatformSettings"
+  tenant_scope:
+    - "Tenancy"
+    - "TenantIdentityAccess"
+    - "TenantSetupConfiguration"
+    - "Tables"
+    - "Stations"
+    - "MenuCatalog"
+    - "CustomerAccess"
+    - "CustomerSessions"
+    - "Cart"
+    - "Ordering"
+    - "StationRouting"
+    - "BillSessions"
+    - "Checkout"
+    - "FloorService"
+    - "TenantAudit"
+    - "TableDeviceQrDisplay"
+  shared_scope:
+    - "SharedAuthenticationRuntime"
+    - "TechnicalOperations"
+    - "SharedObservability"
+    - "SharedRateLimiting"
+
+initial_backend_tree:
+  src_backend:
+    - "hosts/IoTable.Api"
+    - "hosts/IoTable.Worker"
+    - "building-blocks/IoTable.BuildingBlocks.Domain"
+    - "building-blocks/IoTable.BuildingBlocks.Application"
+    - "building-blocks/IoTable.BuildingBlocks.Infrastructure"
+    - "building-blocks/IoTable.BuildingBlocks.Api"
+    - "modules/Platform/IoTable.Platform.Domain"
+    - "modules/Platform/IoTable.Platform.Application"
+    - "modules/Platform/IoTable.Platform.Infrastructure"
+    - "modules/Platform/IoTable.Platform.Api"
+    - "modules/Tenancy/IoTable.Tenancy.Domain"
+    - "modules/Tenancy/IoTable.Tenancy.Application"
+    - "modules/Tenancy/IoTable.Tenancy.Infrastructure"
+    - "modules/Tenancy/IoTable.Tenancy.Api"
+    - "modules/CustomerAccess/IoTable.CustomerAccess.Domain"
+    - "modules/CustomerAccess/IoTable.CustomerAccess.Application"
+    - "modules/CustomerAccess/IoTable.CustomerAccess.Infrastructure"
+    - "modules/CustomerAccess/IoTable.CustomerAccess.Api"
+    - "modules/Ordering/IoTable.Ordering.Domain"
+    - "modules/Ordering/IoTable.Ordering.Application"
+    - "modules/Ordering/IoTable.Ordering.Infrastructure"
+    - "modules/Ordering/IoTable.Ordering.Api"
+  tests_backend:
+    - "unit/IoTable.Platform.Tests"
+    - "unit/IoTable.CustomerAccess.Tests"
+    - "unit/IoTable.Ordering.Tests"
+    - "integration/IoTable.IntegrationTests"
+    - "contracts/IoTable.Api.ContractTests"
+    - "architecture/IoTable.ArchitectureTests"
+
+project_dependency_rules:
+  - id: "BSS-001"
+    rule: "Domain projects MUST NOT depend on Infrastructure or Api projects."
+  - id: "BSS-002"
+    rule: "Application projects MUST NOT depend on Api projects."
+  - id: "BSS-003"
+    rule: "Api projects MUST NOT contain domain behavior."
+  - id: "BSS-004"
+    rule: "Infrastructure projects MAY depend on their own module Application and Domain projects."
+  - id: "BSS-005"
+    rule: "Host projects MAY reference module Api and Infrastructure composition packages."
+  - id: "BSS-006"
+    rule: "Cross-module direct Infrastructure dependency is forbidden."
+  - id: "BSS-007"
+    rule: "Shared building-block projects MUST NOT contain IoTable product decisions."
+
+configuration_rules:
+  - id: "BSC-001"
+    rule: "Platform database connection configuration MUST be resolved by IoTable.Api and IoTable.Worker host configuration."
+  - id: "BSC-002"
+    rule: "Tenant database connection resolution MUST use tenant context and tenant database registry."
+  - id: "BSC-003"
+    rule: "Secrets MUST NOT be stored in source code or specification examples."
+  - id: "BSC-004"
+    rule: "Platform and tenant frontend applications MUST NOT be hosted inside backend projects."
+  - id: "BSC-005"
+    rule: "Redis configuration MUST be resolved by host configuration and MUST be treated as ephemeral infrastructure."
+  - id: "BSC-006"
+    rule: "Hangfire configuration MUST be resolved by IoTable.Worker host configuration."
+
+verification_rules:
+  required_test_categories:
+    - "unit_tests_per_module"
+    - "integration_tests_for_database_boundaries"
+    - "api_contract_tests"
+    - "architecture_dependency_tests"
+  rules:
+    - "Architecture tests MUST verify forbidden project dependencies."
+    - "Contract tests MUST verify platform, tenant internal, and customer public API contracts."
+    - "Integration tests MUST verify platform database and tenant database boundary behavior."
+
+forbidden_behavior:
+  - "single_project_backend"
+  - "business_logic_inside_api_host"
+  - "background_jobs_inside_http_request_pipeline_only"
+  - "direct_cross_module_database_write"
+  - "domain_project_depending_on_ef_core"
+  - "platform_frontend_inside_backend_host"
+  - "tenant_frontend_inside_backend_host"
+  - "redis_as_source_of_truth_for_durable_state"
+  - "hangfire_internal_tables_as_platform_job_source_of_truth"
+
+open_decisions: []
+
+done_when:
+  - "backend_solution_policy_is_defined"
+  - "runtime_hosts_are_defined"
+  - "background_cache_and_locking_decision_is_referenced"
+  - "host_projects_are_defined"
+  - "building_blocks_are_defined"
+  - "module_project_pattern_is_defined"
+  - "module_inventory_mapping_is_defined"
+  - "initial_backend_tree_is_defined"
+  - "project_dependency_rules_are_defined"
+  - "configuration_rules_are_defined"
+  - "verification_rules_are_defined"
+  - "forbidden_backend_structure_behavior_is_defined"

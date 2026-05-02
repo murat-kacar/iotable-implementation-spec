@@ -1,0 +1,300 @@
+document:
+  id: "03-domain.bill-session-workflow"
+  title: "IoTable Bill Session Workflow"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/03-domain/bill-session-workflow.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define adisyon/bill session lifecycle, table bill ownership, order attachment, bill viewing, manual payment recording, bill closing, bill reopening, and forbidden payment-provider assumptions."
+  applies_to:
+    - "customer_order_submit"
+    - "staff_pda_order_submit"
+    - "bill_session"
+    - "cashier_workspace"
+    - "floor_staff_workspace"
+    - "tenant_operations"
+
+bill_session_model:
+  one_active_bill_per_table: true
+  active_bill_scope: "table"
+  payment_provider_integration: false
+  manual_payment_recording: true
+  customer_payment_collection: false
+  rules:
+    - "A table MUST NOT have more than one active bill session."
+    - "A bill session belongs to exactly one table."
+    - "IoTable MUST NOT integrate online payment providers."
+    - "IoTable MUST record manual payment status only."
+    - "Customer-facing payment collection MUST NOT be supported."
+
+bill_lifecycle_states:
+  allowed_states:
+    - "open"
+    - "closing"
+    - "closed"
+    - "reopened"
+    - "cancelled"
+  initial_state: "open"
+  terminal_states:
+    - "closed"
+    - "cancelled"
+  transitions:
+    - from: "none"
+      to: "open"
+      trigger: "first_order_for_table_or_staff_open_bill"
+    - from: "open"
+      to: "closing"
+      trigger: "authorized_staff_starts_bill_close"
+    - from: "closing"
+      to: "closed"
+      trigger: "manual_payment_recorded_and_close_confirmed"
+    - from: "closed"
+      to: "reopened"
+      trigger: "authorized_manager_admin_owner_reopens_bill"
+    - from: "reopened"
+      to: "open"
+      trigger: "reopen_completed"
+    - from: "open"
+      to: "cancelled"
+      trigger: "authorized_cancel_when_no_submitted_orders_or_admin_exception"
+  rules:
+    - "Only open or reopened bill sessions MAY accept new orders."
+    - "Closed bill sessions MUST NOT accept new orders unless reopened."
+    - "Cancelled bill sessions MUST NOT accept new orders."
+    - "Reopened bill sessions MUST become open after reopen completion."
+
+order_attachment_policy:
+  customer_order_submit_auto_opens_bill_if_none_exists: true
+  staff_pda_order_submit_auto_opens_bill_if_none_exists: true
+  customer_orders_attach_to_active_bill: true
+  staff_pda_orders_attach_to_active_bill: true
+  rules:
+    - "Customer order submit MUST attach the order to the table's active bill session."
+    - "Staff PDA order submit MUST attach the order to the table's active bill session."
+    - "If no active bill session exists for the table, order submit MUST atomically open one."
+    - "Opening a bill session and attaching the order MUST be part of the same transaction as order submit."
+    - "Order submit MUST fail if the table has a closing, closed, or cancelled bill session and no new active bill can be opened according to table state rules."
+
+commands:
+  - id: "OpenBillSessionForTable"
+    actor: "system_or_authorized_staff"
+    required_permissions_when_staff_initiated:
+      - "tenant.bills.open"
+    emits:
+      - "BillSessionOpened"
+  - id: "AttachOrderToBillSession"
+    actor: "system"
+    emits:
+      - "OrderAttachedToBillSession"
+  - id: "ViewBillSession"
+    actor: "authorized_staff_or_active_customer_session"
+    emits:
+      - "BillSessionViewed"
+  - id: "StartBillClose"
+    actor: "authorized_staff"
+    required_permissions:
+      - "tenant.bills.close"
+    emits:
+      - "BillSessionClosingStarted"
+  - id: "RecordManualPayment"
+    actor: "authorized_staff"
+    required_permissions:
+      - "tenant.manual_payments.record"
+    emits:
+      - "ManualPaymentRecorded"
+  - id: "CloseBillSession"
+    actor: "authorized_staff"
+    required_permissions:
+      - "tenant.bills.close"
+    emits:
+      - "BillSessionClosed"
+  - id: "ReopenBillSession"
+    actor: "tenant_manager_or_tenant_admin_or_tenant_owner"
+    required_permissions:
+      - "tenant.bills.reopen"
+    emits:
+      - "BillSessionReopened"
+
+workflows:
+  order_submit_bill_attachment:
+    trigger:
+      - "customer_order_submit"
+      - "staff_pda_order_submit"
+    transaction: "same_transaction_as_order_submit"
+    steps:
+      - "resolve table"
+      - "lock table active bill session lookup"
+      - "open bill session if none exists"
+      - "attach order to active bill session"
+      - "recalculate bill totals"
+    rules:
+      - "Order submit and bill attachment MUST be atomic."
+      - "Bill total recalculation MUST use server-side order item snapshots."
+      - "Client-provided bill totals MUST NOT be trusted."
+
+  customer_bill_view:
+    actor: "active_customer_session"
+    requires:
+      - "active_customer_session"
+      - "session_table_matches_bill_table"
+    returns:
+      - "bill summary"
+      - "attached submitted orders"
+      - "order item snapshots"
+      - "manual payment status if closed or closing"
+    rules:
+      - "Customer bill view MUST require active customer session."
+      - "Stale QR MUST NOT reveal bill state."
+      - "Customer bill view MUST only show the bill for the session table."
+
+  staff_bill_view:
+    actor: "authorized_staff"
+    required_permissions:
+      - "tenant.bills.view"
+    returns:
+      - "bill detail"
+      - "orders"
+      - "order items"
+      - "station status summary"
+      - "manual payment records"
+    rules:
+      - "Staff bill view MUST be permission-protected."
+      - "Staff bill view MUST execute only inside the resolved tenant database."
+
+  bill_close:
+    actor: "authorized_cashier_manager_admin_owner"
+    required_permissions:
+      - "tenant.bills.close"
+      - "tenant.manual_payments.record"
+    validation:
+      - "bill_is_open_or_reopened"
+      - "all_non_cancelled_orders_attached"
+      - "manual_payment_amount_covers_or_matches_bill_total"
+      - "payment_method_recorded"
+    result:
+      - "manual_payment_record_created"
+      - "bill_status_closed"
+      - "table_bill_state_cleared_or_marked_closed"
+    rules:
+      - "Bill close MUST record manual payment; it MUST NOT process a real payment provider charge."
+      - "Bill close MUST be audited."
+      - "Closed bill MUST NOT accept new orders unless reopened."
+
+  bill_reopen:
+    actor: "tenant_manager_or_tenant_admin_or_tenant_owner"
+    required_permissions:
+      - "tenant.bills.reopen"
+    validation:
+      - "bill_is_closed"
+      - "table_has_no_other_active_bill_session"
+      - "reason_present"
+    result:
+      - "bill_status_reopened_then_open"
+      - "reopen_audit_record_created"
+    rules:
+      - "Bill reopen MUST require reason."
+      - "Bill reopen MUST be limited to tenant_manager, tenant_admin, or tenant_owner through fixed role-permission bundles."
+      - "Bill reopen MUST be audited."
+
+manual_payment_policy:
+  provider_payment_supported: false
+  manual_payment_required_to_close: true
+  partial_payment_supported: false
+  overpayment_allowed: false
+  payment_methods:
+    - "cash"
+    - "card_external_pos"
+    - "bank_transfer"
+    - "other"
+  rules:
+    - "Manual payment record MUST represent an external/offline payment event."
+    - "Manual payment record MUST NOT claim that IoTable processed the payment."
+    - "IoTable MUST require one manual payment record matching bill total to close."
+    - "Partial payments MUST NOT be supported."
+    - "Overpayments MUST NOT be supported."
+
+authorization_policy:
+  view_bill:
+    staff_permission: "tenant.bills.view"
+    customer_condition: "active_customer_session_for_same_table"
+  close_bill:
+    required_permissions:
+      - "tenant.bills.close"
+      - "tenant.manual_payments.record"
+  reopen_bill:
+    required_permission: "tenant.bills.reopen"
+    allowed_roles:
+      - "tenant_owner"
+      - "tenant_admin"
+      - "tenant_manager"
+  rules:
+    - "Customer bill view MUST be session-scoped."
+    - "Staff bill operations MUST be permission-scoped."
+    - "Accountant role MAY view bills and manual payments but MUST NOT close or reopen bills."
+
+bill_total_policy:
+  source_of_truth: "server_side_order_item_snapshots"
+  client_total_trusted: false
+  recalculation_required_on:
+    - "order_attached"
+    - "order_cancelled"
+    - "bill_close_started"
+    - "bill_close_confirmed"
+  rules:
+    - "Bill totals MUST be calculated from non-cancelled order items attached to the bill."
+    - "Client-provided totals MUST NOT be trusted."
+    - "Cancelled order items MUST be excluded from payable total according to cancellation policy."
+
+customer_visibility_policy:
+  stale_qr_bill_visibility: false
+  active_session_bill_visibility: true
+  after_order_submit_requires_new_fresh_qr: true
+  rules:
+    - "Stale QR MUST NOT reveal whether a bill exists."
+    - "Customer bill visibility MUST require active customer session."
+    - "After order submit, the customer session is offline and bill view requires joining again with a fresh QR."
+
+anti_abuse_rules:
+  - "One table MUST NOT have more than one active bill session."
+  - "Bill close MUST be staff-authorized."
+  - "Bill reopen MUST require manager/admin/owner authority and reason."
+  - "Customer stale QR MUST NOT reveal bill state."
+  - "Client totals MUST NOT be trusted."
+  - "Payment provider processing MUST NOT be implied by manual payment records."
+
+forbidden_behavior:
+  - "multiple_active_bills_per_table"
+  - "customer_stale_qr_bill_view"
+  - "bill_close_without_manual_payment_record"
+  - "bill_close_by_unauthorized_staff"
+  - "bill_reopen_by_cashier_or_floor_staff"
+  - "bill_reopen_without_reason"
+  - "closed_bill_accepting_new_orders_without_reopen"
+  - "client_provided_bill_total_as_source_of_truth"
+  - "payment_provider_charge"
+  - "partial_payments"
+  - "overpayments"
+
+open_decisions: []
+
+done_when:
+  - "bill_session_model_is_defined"
+  - "bill_lifecycle_states_are_defined"
+  - "order_attachment_policy_is_defined"
+  - "bill_commands_are_defined"
+  - "order_submit_bill_attachment_workflow_is_defined"
+  - "customer_bill_view_workflow_is_defined"
+  - "staff_bill_view_workflow_is_defined"
+  - "bill_close_workflow_is_defined"
+  - "bill_reopen_workflow_is_defined"
+  - "manual_payment_policy_is_defined"
+  - "authorization_policy_is_defined"
+  - "bill_total_policy_is_defined"
+  - "customer_visibility_policy_is_defined"
+  - "anti_abuse_rules_are_defined"
+  - "forbidden_bill_behavior_is_defined"

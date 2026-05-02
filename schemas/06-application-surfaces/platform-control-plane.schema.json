@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/06-application-surfaces/platform-control-plane.schema.json",
+  "title": "IoTable Platform Control Plane Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "route_map",
+    "surface_rules",
+    "platform_tenant_creation_input_policy",
+    "dashboard_metrics",
+    "tenant_detail_screen",
+    "create_flow",
+    "validation_rules",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "route_map": { "$ref": "#/$defs/object_record" },
+    "surface_rules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/rule_record_pcp" } },
+    "platform_tenant_creation_input_policy": { "$ref": "#/$defs/object_record" },
+    "dashboard_metrics": { "$ref": "#/$defs/object_record" },
+    "tenant_detail_screen": { "$ref": "#/$defs/object_record" },
+    "create_flow": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step_record" } },
+    "validation_rules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/rule_record_tcv" } },
+    "open_decisions": { "type": "array", "items": { "$ref": "#/$defs/open_decision" } },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "06-application-surfaces.platform-control-plane" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/06-application-surfaces/platform-control-plane.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "rule_record_pcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^PCP-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rule_record_tcv": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^TCV-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "step_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "id", "actor", "result"],
+      "properties": {
+        "step": { "type": "integer", "minimum": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string", "minLength": 1 },
+        "result": { "type": "string", "minLength": 1 }
+      }
+    },
+    "open_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^PCP-OD-[0-9]{3}$" },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    }
+  }
+}

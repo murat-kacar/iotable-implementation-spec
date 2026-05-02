@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/07-api-contracts/customer-order-api.schema.json",
+  "title": "IoTable Customer Order API Contracts Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "api_policy",
+    "access_policy",
+    "common_contract_rules",
+    "common_error_contract",
+    "endpoints",
+    "request_response_contracts",
+    "security_and_audit",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "type": "object", "additionalProperties": true },
+    "purpose": { "type": "object", "additionalProperties": true },
+    "api_policy": { "type": "object", "additionalProperties": true },
+    "access_policy": { "type": "object", "additionalProperties": true },
+    "common_contract_rules": { "type": "object", "additionalProperties": true },
+    "common_error_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "content_type", "fields", "rules"],
+      "properties": {
+        "format": { "type": "string", "const": "problem_details" },
+        "content_type": { "type": "string", "const": "application/problem+json" },
+        "fields": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "rules": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "endpoints": { "type": "object", "additionalProperties": true },
+    "request_response_contracts": { "type": "object", "additionalProperties": true },
+    "security_and_audit": { "type": "object", "additionalProperties": true },
+    "forbidden_behavior": { "type": "array", "items": { "type": "string" } },
+    "open_decisions": { "type": "array" },
+    "done_when": { "type": "array", "items": { "type": "string" } }
+  }
+}

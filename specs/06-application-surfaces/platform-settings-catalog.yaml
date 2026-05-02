@@ -1,0 +1,158 @@
+document:
+  id: "06-application-surfaces.platform-settings-catalog"
+  title: "IoTable Platform Settings Catalog"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/06-application-surfaces/platform-settings-catalog.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the editable and read-only platform settings exposed in the platform control plane."
+  audience:
+    - "platform_owner"
+  route: "/settings"
+
+settings_policy:
+  mode: "minimal_editable_settings"
+  rules:
+    - "Only operational defaults MAY be editable from platform settings."
+    - "System identity, tenancy patterns, architecture decisions, authentication stack, and QR security constants MUST be read-only."
+    - "Editable settings MUST have explicit validation rules."
+    - "Every settings change MUST create a platform audit record."
+    - "Settings MUST NOT change existing tenant infrastructure identifiers retroactively."
+
+editable_settings:
+  - id: "default_locale"
+    type: "locale"
+    default: "tr-TR"
+    validation: "must_be_supported_locale"
+    applies_to: "new_tenant_creation_default"
+    retroactive: false
+  - id: "default_currency"
+    type: "currency_code"
+    default: "TRY"
+    validation: "must_be_supported_currency_code"
+    applies_to: "new_tenant_creation_default"
+    retroactive: false
+  - id: "default_timezone"
+    type: "iana_timezone"
+    default: "Europe/Istanbul"
+    validation: "must_be_valid_iana_timezone"
+    applies_to: "new_tenant_creation_default"
+    retroactive: false
+  - id: "tenant_owner_activation_invite_ttl_hours"
+    type: "integer"
+    default: 72
+    minimum: 1
+    maximum: 168
+    validation: "must_be_between_minimum_and_maximum"
+    applies_to: "new_activation_invites"
+    retroactive: false
+  - id: "provisioning_retry_limit"
+    type: "integer"
+    default: 3
+    minimum: 0
+    maximum: 10
+    validation: "must_be_between_minimum_and_maximum"
+    applies_to: "new_or_failed_provisioning_jobs"
+    retroactive: false
+
+read_only_settings:
+  - id: "platform_domain"
+    value: "platform.iotables.net"
+    reason: "Platform domain is part of the deployment and route namespace contract."
+  - id: "tenant_domain_pattern"
+    value: "{tenant}.iotables.net"
+    reason: "Tenant domain pattern is part of the tenancy contract."
+  - id: "tenant_database_name_pattern"
+    value: "iotable_tenant_{tenantSlug}"
+    reason: "Tenant database naming is part of the tenant isolation contract."
+  - id: "platform_database_name"
+    value: "iotable_platform"
+    reason: "Platform database name is part of the deployment and data ownership contract."
+  - id: "qr_rotation_interval_seconds"
+    value: 60
+    reason: "QR rotation interval is part of the customer presence security model."
+  - id: "architecture_style"
+    value: "modular_monolith"
+    reason: "Architecture style is a specification decision, not a runtime setting."
+  - id: "auth_identity_store"
+    value: "ASP.NET Core Identity"
+    reason: "Authentication stack is a system architecture decision."
+  - id: "auth_oidc_oauth_server"
+    value: "OpenIddict"
+    reason: "Authentication stack is a system architecture decision."
+  - id: "database_engine"
+    value: "PostgreSQL 17"
+    reason: "Database engine is a technology stack decision."
+
+settings_ui:
+  sections:
+    - id: "tenant_defaults"
+      label: "Tenant defaults"
+      editable_settings:
+        - "default_locale"
+        - "default_currency"
+        - "default_timezone"
+    - id: "activation"
+      label: "Activation"
+      editable_settings:
+        - "tenant_owner_activation_invite_ttl_hours"
+    - id: "provisioning"
+      label: "Provisioning"
+      editable_settings:
+        - "provisioning_retry_limit"
+    - id: "system_contracts"
+      label: "System contracts"
+      read_only_settings:
+        - "platform_domain"
+        - "tenant_domain_pattern"
+        - "tenant_database_name_pattern"
+        - "platform_database_name"
+        - "qr_rotation_interval_seconds"
+        - "architecture_style"
+        - "auth_identity_store"
+        - "auth_oidc_oauth_server"
+        - "database_engine"
+  rules:
+    - "Read-only settings MUST be visibly read-only in the UI."
+    - "Read-only settings MUST explain why they cannot be edited."
+    - "Editable setting changes MUST require explicit save action."
+    - "Editable setting changes MUST show validation errors before submission."
+
+platform_audit_events:
+  - id: "platform_setting_updated"
+    actor: "platform_owner"
+    required_fields:
+      - "setting_id"
+      - "old_value"
+      - "new_value"
+      - "created_at"
+  - id: "platform_setting_update_rejected"
+    actor: "system"
+    required_fields:
+      - "setting_id"
+      - "attempted_value"
+      - "reason"
+      - "created_at"
+
+forbidden_behavior:
+  - "editing_tenant_domain_pattern_from_ui"
+  - "editing_tenant_database_name_pattern_from_ui"
+  - "editing_platform_database_name_from_ui"
+  - "editing_qr_rotation_interval_from_ui"
+  - "editing_auth_stack_from_ui"
+  - "retroactively_mutating_existing_tenant_identifiers"
+
+open_decisions: []
+
+done_when:
+  - "settings_policy_is_defined"
+  - "editable_settings_are_defined"
+  - "read_only_settings_are_defined"
+  - "settings_ui_sections_are_defined"
+  - "settings_audit_events_are_defined"
+  - "forbidden_settings_behavior_is_defined"

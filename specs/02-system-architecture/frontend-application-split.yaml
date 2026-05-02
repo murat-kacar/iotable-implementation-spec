@@ -1,0 +1,181 @@
+document:
+  id: "02-system-architecture.frontend-application-split"
+  title: "IoTable Frontend Application Split"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/02-system-architecture/frontend-application-split.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define frontend application boundaries, deployment split, domain ownership, and isolation rules for IoTable."
+  applies_to:
+    - "platform_control_plane"
+    - "tenant_console"
+    - "tenant_staff_app"
+    - "station_board"
+    - "customer_ordering"
+
+frontend_stack:
+  runtime: "Node.js 24 LTS"
+  package_manager: "pnpm 11.0.3"
+  framework: "Next.js 16.2.4"
+  ui_runtime: "React 19.2.5"
+  language: "TypeScript 6.0.3"
+  styling: "Tailwind CSS v4.0"
+
+selected_split:
+  backend: "single_modular_monolith_backend"
+  frontend_deployables:
+    - id: "platform_web"
+      type: "separate_nextjs_app"
+      domain: "platform.iotables.net"
+      audience:
+        - "platform_owner"
+      owns_surfaces:
+        - "platform_control_plane"
+      api_base: "https://platform.iotables.net/api/platform"
+    - id: "tenant_web"
+      type: "separate_nextjs_app"
+      domain: "{tenant}.iotables.net"
+      audience:
+        - "tenant_owner"
+        - "tenant_admin"
+        - "tenant_manager"
+        - "cashier"
+        - "floor_staff"
+        - "station_operator"
+        - "customer_diner"
+      owns_surfaces:
+        - "tenant_setup_console"
+        - "floor_cash_workspace"
+        - "station_board"
+        - "customer_ordering"
+        - "identity_activation"
+      api_bases:
+        tenant_internal_api: "https://{tenant}.iotables.net/api/internal"
+        customer_public_api: "https://{tenant}.iotables.net/api/public"
+        device_realtime: "wss://{tenant}.iotables.net/ws/devices/tables/{tableId}"
+
+rationale:
+  selected_because:
+    - "Platform control plane and tenant operations solve different problems and have different risk profiles."
+    - "Separate frontend deployables reduce accidental route, session, and authorization coupling."
+    - "Platform UI must not expose tenant operational workflows."
+    - "Tenant UI must not contain platform lifecycle or provisioning controls."
+    - "Domain-level separation improves operational clarity and security isolation."
+  rejected_alternatives:
+    - id: "single_nextjs_app_for_platform_and_tenant"
+      reason: "Rejected because platform and tenant surfaces have different audiences, routes, permissions, and isolation requirements."
+    - id: "screen_level_split_inside_one_frontend"
+      reason: "Rejected because screen-level separation is weaker than application-level separation."
+
+isolation_rules:
+  - id: "FAS-001"
+    rule: "platform_web and tenant_web MUST be separate Next.js applications."
+  - id: "FAS-002"
+    rule: "platform_web MUST be served only from platform.iotables.net."
+  - id: "FAS-003"
+    rule: "tenant_web MUST be served only from tenant domains matching {tenant}.iotables.net."
+  - id: "FAS-004"
+    rule: "platform_web MUST call only platform API routes under /api/platform/**."
+  - id: "FAS-005"
+    rule: "tenant_web MUST NOT call platform API routes."
+  - id: "FAS-006"
+    rule: "platform_web MUST NOT include tenant menu, order, station, checkout, or customer session screens."
+  - id: "FAS-007"
+    rule: "tenant_web MUST NOT include tenant lifecycle, provisioning, schema job, platform settings, or platform audit screens."
+  - id: "FAS-008"
+    rule: "Platform authentication state MUST be separate from tenant authentication state."
+  - id: "FAS-009"
+    rule: "Platform cookies, tenant staff cookies, and customer guest continuity state MUST use separate names and scopes."
+  - id: "FAS-010"
+    rule: "Shared UI code MAY exist only as framework-independent packages without product authorization behavior."
+
+shared_frontend_packages:
+  allowed:
+    - id: "ui_primitives"
+      purpose: "Shared low-level UI components without product-specific permissions or data access."
+    - id: "design_tokens"
+      purpose: "Shared typography, spacing, color tokens, and Tailwind configuration primitives."
+    - id: "api_client_base"
+      purpose: "Shared HTTP client primitives without embedded platform or tenant endpoint ownership."
+    - id: "validation_helpers"
+      purpose: "Shared pure validation helpers."
+  forbidden:
+    - "shared_authorization_logic_that_mixes_platform_and_tenant_permissions"
+    - "shared_route_registry_for_platform_and_tenant_apps"
+    - "shared_state_store_between_platform_and_tenant_apps"
+    - "shared_customer_session_logic_inside_platform_web"
+
+routing_contract:
+  platform_web:
+    root_domain: "platform.iotables.net"
+    allowed_route_families:
+      - "/"
+      - "/tenants/**"
+      - "/jobs/**"
+      - "/audit"
+      - "/settings"
+      - "/health"
+    forbidden_route_families:
+      - "/console/**"
+      - "/app/**"
+      - "/g/**"
+      - "/menu"
+      - "/cart"
+      - "/stations/**"
+  tenant_web:
+    root_domain: "{tenant}.iotables.net"
+    allowed_route_families:
+      - "/console/**"
+      - "/app/**"
+      - "/g/{token}/**"
+      - "/login"
+      - "/change-password"
+      - "/activate"
+      - "/login-2fa"
+    forbidden_route_families:
+      - "/tenants/**"
+      - "/jobs/**"
+      - "/audit"
+      - "/settings"
+      - "/api/platform/**"
+
+build_and_deployment:
+  platform_web:
+    deployable_name: "iotable-platform-web"
+    build_scope: "platform_web_only"
+    environment_scope: "platform"
+  tenant_web:
+    deployable_name: "iotable-tenant-web"
+    build_scope: "tenant_web_only"
+    environment_scope: "tenant"
+  rules:
+    - "Platform and tenant frontend deployables MUST be buildable independently."
+    - "Platform and tenant frontend deployables MUST be deployable independently."
+    - "A platform_web deployment MUST NOT require rebuilding tenant_web."
+    - "A tenant_web deployment MUST NOT require rebuilding platform_web."
+    - "Both frontend deployables MAY consume shared frontend packages."
+
+open_decisions: []
+
+forbidden_behavior:
+  - "single_nextjs_app_for_all_surfaces"
+  - "platform_routes_inside_tenant_web"
+  - "tenant_operation_routes_inside_platform_web"
+  - "shared_platform_and_tenant_auth_cookie"
+  - "tenant_web_calling_platform_api"
+  - "platform_web_calling_tenant_internal_api"
+
+done_when:
+  - "frontend_deployables_are_defined"
+  - "platform_web_boundary_is_defined"
+  - "tenant_web_boundary_is_defined"
+  - "frontend_isolation_rules_are_defined"
+  - "shared_frontend_package_rules_are_defined"
+  - "routing_contract_is_defined"
+  - "build_and_deployment_rules_are_defined"
+  - "forbidden_frontend_behavior_is_defined"

@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/11-testing-verification/test-taxonomy.schema.json",
+  "title": "IoTable Test Taxonomy Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "taxonomy_rules",
+    "tiers",
+    "verification_mapping",
+    "release_verification_commands",
+    "source_alignment",
+    "open_questions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/purpose" },
+    "taxonomy_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule_record" }
+    },
+    "tiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/tier" }
+    },
+    "verification_mapping": { "$ref": "#/$defs/verification_mapping" },
+    "release_verification_commands": { "$ref": "#/$defs/release_verification_commands" },
+    "source_alignment": { "$ref": "#/$defs/source_alignment" },
+    "open_questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/open_question" }
+    },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "11-testing-verification.test-taxonomy" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/11-testing-verification/test-taxonomy.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "applies_to"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "applies_to": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^TT-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "purpose", "required_when", "verifies"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "spec_validation",
+            "unit",
+            "integration",
+            "api_contract",
+            "database_contract",
+            "workflow",
+            "security",
+            "operational_smoke"
+          ]
+        },
+        "purpose": { "type": "string", "minLength": 1 },
+        "required_when": { "$ref": "#/$defs/string_array" },
+        "verifies": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "verification_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acceptance_criteria_document", "mapping_rule", "implementation_done_rule"],
+      "properties": {
+        "acceptance_criteria_document": { "type": "string", "const": "specs/11-testing-verification/acceptance-criteria.yaml" },
+        "mapping_rule": { "type": "string", "minLength": 1 },
+        "implementation_done_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "release_verification_commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command_sets", "rules"],
+      "properties": {
+        "command_sets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/command_set" }
+        },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "command_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "command", "run_from", "required_when", "verifies"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "spec_repository_validation",
+            "backend_test_suite",
+            "frontend_build",
+            "frontend_test_suite",
+            "operational_health_smoke"
+          ]
+        },
+        "command": { "type": "string", "minLength": 1 },
+        "run_from": {
+          "type": "string",
+          "enum": [
+            "specification_repository_root",
+            "implementation_repository_root",
+            "frontend_workspace_root",
+            "deployed_environment"
+          ]
+        },
+        "required_when": { "$ref": "#/$defs/string_array" },
+        "verifies": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "source_alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authoritative_project_documents", "reference_documents_used_as_inspiration", "reference_fit_rule"],
+      "properties": {
+        "authoritative_project_documents": { "$ref": "#/$defs/string_array" },
+        "reference_documents_used_as_inspiration": { "$ref": "#/$defs/string_array" },
+        "reference_fit_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "open_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question", "owner"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^TT-Q-[0-9]{3}$" },
+        "question": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

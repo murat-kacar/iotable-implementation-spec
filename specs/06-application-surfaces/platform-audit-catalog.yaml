@@ -1,0 +1,253 @@
+document:
+  id: "06-application-surfaces.platform-audit-catalog"
+  title: "IoTable Platform Audit Catalog"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/06-application-surfaces/platform-audit-catalog.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define platform-scoped audit policy, event catalog, required fields, exclusions, and retention behavior."
+  audience:
+    - "platform_owner"
+  applies_to:
+    - "platform_control_plane"
+    - "platform_api"
+    - "tenant_lifecycle"
+    - "tenant_provisioning"
+    - "tenant_schema_jobs"
+    - "platform_settings"
+    - "platform_authentication"
+
+platform_audit_policy:
+  audit_read_only_views: false
+  audit_state_changes: true
+  audit_security_events: true
+  audit_failed_mutations: true
+  audit_system_job_failures: true
+  audit_retention_days: 365
+  rules:
+    - "Read-only page views MUST NOT create platform audit records."
+    - "State-changing platform actions MUST create platform audit records."
+    - "Security-relevant platform authentication events MUST create platform audit records."
+    - "Failed platform mutations MUST create platform audit records."
+    - "System job failures related to platform-owned tenant lifecycle, provisioning, or schema changes MUST create platform audit records."
+    - "Audit records MUST be append-only."
+    - "Audit records MUST NOT be edited after creation."
+
+platform_audit_record_contract:
+  required_fields:
+    id: "uuid"
+    event_type: "enum"
+    actor_type: "platform_owner_or_system"
+    actor_id: "nullable_uuid"
+    tenant_id: "nullable_uuid"
+    job_id: "nullable_uuid"
+    severity: "info_warning_or_critical"
+    reason: "nullable_string"
+    metadata: "json_object"
+    created_at: "timestamp"
+  rules:
+    - "actor_id MUST be present when actor_type is platform_owner."
+    - "actor_id MUST be null when actor_type is system."
+    - "tenant_id MUST be present for tenant-related platform audit events."
+    - "job_id MUST be present for job-related platform audit events."
+    - "reason MUST be present when the action requires a reason."
+    - "metadata MUST contain only structured machine-readable fields."
+
+event_catalog:
+  tenant_lifecycle_events:
+    - id: "tenant_created"
+      actor_type: "platform_owner"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "actor_id"
+        - "created_at"
+    - id: "tenant_creation_failed"
+      actor_type: "system"
+      severity: "critical"
+      required_fields:
+        - "tenant_id"
+        - "failure_message"
+        - "created_at"
+    - id: "tenant_suspended"
+      actor_type: "platform_owner"
+      severity: "warning"
+      required_fields:
+        - "tenant_id"
+        - "actor_id"
+        - "reason"
+        - "created_at"
+    - id: "tenant_reactivated"
+      actor_type: "platform_owner"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "actor_id"
+        - "reason"
+        - "created_at"
+    - id: "tenant_deactivated"
+      actor_type: "platform_owner"
+      severity: "critical"
+      required_fields:
+        - "tenant_id"
+        - "actor_id"
+        - "reason"
+        - "created_at"
+  activation_events:
+    - id: "tenant_owner_activation_invite_created"
+      actor_type: "system"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "created_at"
+    - id: "tenant_owner_activation_invite_resent"
+      actor_type: "platform_owner"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "actor_id"
+        - "reason"
+        - "created_at"
+  provisioning_events:
+    - id: "tenant_provisioning_started"
+      actor_type: "system"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "job_id"
+        - "created_at"
+    - id: "tenant_provisioning_failed"
+      actor_type: "system"
+      severity: "critical"
+      required_fields:
+        - "tenant_id"
+        - "job_id"
+        - "failed_step"
+        - "failure_message"
+        - "created_at"
+    - id: "tenant_provisioning_retry_requested"
+      actor_type: "platform_owner"
+      severity: "warning"
+      required_fields:
+        - "tenant_id"
+        - "job_id"
+        - "actor_id"
+        - "failed_step"
+        - "retry_attempt_number"
+        - "reason"
+        - "created_at"
+    - id: "tenant_provisioning_retry_completed"
+      actor_type: "system"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "job_id"
+        - "created_at"
+  schema_job_events:
+    - id: "tenant_schema_job_started"
+      actor_type: "system"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "job_id"
+        - "created_at"
+    - id: "tenant_schema_job_failed"
+      actor_type: "system"
+      severity: "critical"
+      required_fields:
+        - "tenant_id"
+        - "job_id"
+        - "failure_message"
+        - "created_at"
+    - id: "tenant_schema_job_completed"
+      actor_type: "system"
+      severity: "info"
+      required_fields:
+        - "tenant_id"
+        - "job_id"
+        - "created_at"
+  settings_events:
+    - id: "platform_setting_updated"
+      actor_type: "platform_owner"
+      severity: "warning"
+      required_fields:
+        - "actor_id"
+        - "setting_id"
+        - "old_value"
+        - "new_value"
+        - "created_at"
+    - id: "platform_setting_update_rejected"
+      actor_type: "system"
+      severity: "warning"
+      required_fields:
+        - "setting_id"
+        - "attempted_value"
+        - "reason"
+        - "created_at"
+  authentication_events:
+    - id: "platform_login_succeeded"
+      actor_type: "platform_owner"
+      severity: "info"
+      required_fields:
+        - "actor_id"
+        - "created_at"
+    - id: "platform_login_failed"
+      actor_type: "system"
+      severity: "warning"
+      required_fields:
+        - "attempted_identifier"
+        - "failure_reason"
+        - "created_at"
+
+excluded_events:
+  - id: "dashboard_viewed"
+    reason: "Read-only dashboard viewing does not change state and would create audit noise."
+  - id: "tenants_list_viewed"
+    reason: "Read-only list viewing does not change state and would create audit noise."
+  - id: "tenant_detail_viewed"
+    reason: "Read-only tenant inspection does not change state and would create audit noise."
+  - id: "health_page_viewed"
+    reason: "Read-only health inspection does not change state and would create audit noise."
+  - id: "settings_page_viewed"
+    reason: "Read-only settings inspection does not change state and would create audit noise."
+
+platform_audit_ui:
+  route: "/audit"
+  filters:
+    - "event_type"
+    - "severity"
+    - "actor_type"
+    - "tenant_id"
+    - "job_id"
+    - "created_at_range"
+  default_sort: "created_at_desc"
+  rules:
+    - "Audit UI MUST show event type, severity, actor, tenant, job, reason, and created_at when available."
+    - "Audit UI MUST show metadata as structured key-value details."
+    - "Audit UI MUST NOT allow editing or deleting audit records."
+
+forbidden_behavior:
+  - "auditing_read_only_page_views"
+  - "editing_audit_records"
+  - "deleting_audit_records_from_ui"
+  - "free_text_only_metadata"
+  - "missing_reason_for_reason_required_actions"
+
+open_decisions: []
+
+done_when:
+  - "platform_audit_policy_is_defined"
+  - "audit_record_contract_is_defined"
+  - "tenant_lifecycle_audit_events_are_defined"
+  - "activation_audit_events_are_defined"
+  - "provisioning_audit_events_are_defined"
+  - "schema_job_audit_events_are_defined"
+  - "settings_audit_events_are_defined"
+  - "authentication_audit_events_are_defined"
+  - "excluded_audit_events_are_defined"
+  - "audit_ui_behavior_is_defined"

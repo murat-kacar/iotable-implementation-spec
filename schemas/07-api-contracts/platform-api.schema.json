@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/07-api-contracts/platform-api.schema.json",
+  "title": "IoTable Platform API Contracts Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "api_policy",
+    "common_headers",
+    "common_error_contract",
+    "pagination_contract",
+    "endpoint_groups",
+    "request_response_contracts",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "api_policy": { "$ref": "#/$defs/object_record" },
+    "common_headers": { "$ref": "#/$defs/object_record" },
+    "common_error_contract": { "$ref": "#/$defs/common_error_contract" },
+    "pagination_contract": { "$ref": "#/$defs/object_record" },
+    "endpoint_groups": { "$ref": "#/$defs/object_record" },
+    "request_response_contracts": { "$ref": "#/$defs/object_record" },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "open_decisions": { "type": "array" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "common_error_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "content_type", "fields", "rules"],
+      "properties": {
+        "format": { "type": "string", "const": "problem_details" },
+        "content_type": { "type": "string", "const": "application/problem+json" },
+        "fields": { "$ref": "#/$defs/string_array" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "07-api-contracts.platform-api" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/07-api-contracts/platform-api.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    }
+  }
+}

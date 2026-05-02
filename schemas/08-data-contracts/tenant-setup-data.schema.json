@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/08-data-contracts/tenant-setup-data.schema.json",
+  "title": "IoTable Tenant Setup Data Contracts Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "isolation_principle",
+    "platform_database_boundary",
+    "tenant_database_boundary",
+    "common_columns",
+    "tables",
+    "activation_gate_queries",
+    "owner_activation_data_security",
+    "identity_data_security",
+    "firmware_data_security",
+    "asset_data_security",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/purpose" },
+    "isolation_principle": { "$ref": "#/$defs/isolation_principle" },
+    "platform_database_boundary": { "$ref": "#/$defs/database_boundary" },
+    "tenant_database_boundary": { "$ref": "#/$defs/tenant_database_boundary" },
+    "common_columns": { "$ref": "#/$defs/common_columns" },
+    "tables": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": { "$ref": "#/$defs/table_contract" }
+      }
+    },
+    "activation_gate_queries": { "$ref": "#/$defs/rules_record" },
+    "owner_activation_data_security": { "$ref": "#/$defs/rules_record" },
+    "identity_data_security": { "$ref": "#/$defs/rules_record" },
+    "firmware_data_security": { "$ref": "#/$defs/rules_record" },
+    "asset_data_security": { "$ref": "#/$defs/rules_record" },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "open_decisions": { "type": "array", "items": { "$ref": "#/$defs/open_decision" } },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "08-data-contracts.tenant-setup-data" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/08-data-contracts/tenant-setup-data.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "applies_to"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "applies_to": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "rules_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rules"],
+      "properties": {
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "isolation_principle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "rule",
+        "platform_database_name",
+        "tenant_database_pattern",
+        "tenant_id_filter_based_isolation_allowed",
+        "shared_tenant_database_allowed",
+        "cross_tenant_query_allowed",
+        "cross_tenant_transaction_allowed",
+        "rules"
+      ],
+      "properties": {
+        "model": { "type": "string", "const": "database_per_tenant" },
+        "rule": { "type": "string", "minLength": 1 },
+        "platform_database_name": { "type": "string", "const": "iotable_platform" },
+        "tenant_database_pattern": { "type": "string", "const": "iotable_tenant_{tenantSlug}" },
+        "tenant_id_filter_based_isolation_allowed": { "type": "boolean", "const": false },
+        "shared_tenant_database_allowed": { "type": "boolean", "const": false },
+        "cross_tenant_query_allowed": { "type": "boolean", "const": false },
+        "cross_tenant_transaction_allowed": { "type": "boolean", "const": false },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "database_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owns", "does_not_own", "rules"],
+      "properties": {
+        "owns": { "$ref": "#/$defs/string_array" },
+        "does_not_own": { "$ref": "#/$defs/string_array" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "tenant_database_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owns", "operational_data_owners", "tenant_id_column_policy", "rules"],
+      "properties": {
+        "owns": { "$ref": "#/$defs/string_array" },
+        "operational_data_owners": { "$ref": "#/$defs/string_array" },
+        "tenant_id_column_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tenant_id_column_required", "tenant_id_column_for_isolation", "rationale"],
+          "properties": {
+            "tenant_id_column_required": { "type": "boolean" },
+            "tenant_id_column_for_isolation": { "type": "string", "minLength": 1 },
+            "rationale": { "type": "string", "minLength": 1 }
+          }
+        },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "common_columns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_for_mutable_tables", "optional_for_auditable_tables", "id_policy", "time_policy"],
+      "properties": {
+        "required_for_mutable_tables": { "$ref": "#/$defs/string_array" },
+        "optional_for_auditable_tables": { "$ref": "#/$defs/string_array" },
+        "id_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "generated_by"],
+          "properties": {
+            "type": { "type": "string", "minLength": 1 },
+            "generated_by": { "type": "string", "minLength": 1 }
+          }
+        },
+        "time_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timezone", "rules"],
+          "properties": {
+            "timezone": { "type": "string", "const": "utc" },
+            "rules": { "$ref": "#/$defs/string_array" }
+          }
+        }
+      }
+    },
+    "table_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ownership", "purpose", "primary_key", "columns"],
+      "properties": {
+        "ownership": { "type": "string", "const": "tenant_database" },
+        "purpose": { "type": "string", "minLength": 1 },
+        "primary_key": { "type": "string", "minLength": 1 },
+        "cardinality": { "type": "string", "minLength": 1 },
+        "columns": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": { "type": "string", "minLength": 1 }
+          }
+        },
+        "allowed_setup_statuses": { "$ref": "#/$defs/string_array" },
+        "allowed_activation_statuses": { "$ref": "#/$defs/string_array" },
+        "allowed_statuses": { "$ref": "#/$defs/string_array" },
+        "allowed_roles": { "$ref": "#/$defs/string_array" },
+        "allowed_asset_types": { "$ref": "#/$defs/string_array" },
+        "allowed_table_types": { "$ref": "#/$defs/string_array" },
+        "allowed_station_types": { "$ref": "#/$defs/string_array" },
+        "allowed_non_orderable_badges": { "$ref": "#/$defs/string_array" },
+        "ttl_hours": { "type": "integer", "minimum": 1 },
+        "role_assigned_on_acceptance": { "type": "string", "minLength": 1 },
+        "constraints": { "$ref": "#/$defs/string_array" },
+        "unique_constraints": { "$ref": "#/$defs/string_array" },
+        "seed_rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "minProperties": 1
+          }
+        },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "open_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    }
+  }
+}

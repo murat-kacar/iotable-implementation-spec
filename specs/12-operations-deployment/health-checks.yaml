@@ -1,0 +1,208 @@
+document:
+  id: "12-operations-deployment.health-checks"
+  title: "IoTable Health Checks"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/12-operations-deployment/health-checks.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define IoTable health check endpoints, liveness behavior, readiness behavior, response shape, and operational probe rules."
+  applies_to:
+    - "single_backend_deployable"
+    - "platform_api"
+    - "tenant_internal_api"
+    - "customer_public_api"
+    - "device_realtime_endpoint"
+    - "background_jobs"
+    - "ubuntu_vps_deployment"
+    - "reverse_proxy"
+    - "release_verification"
+
+endpoint_contract:
+  endpoints:
+    - id: "health_alias"
+      path: "/health"
+      classification: "liveness_alias"
+      purpose: "Provide a simple liveness-compatible endpoint for basic uptime tooling."
+    - id: "health_live"
+      path: "/health/live"
+      classification: "liveness"
+      purpose: "Report whether the backend process can answer HTTP requests."
+    - id: "health_ready"
+      path: "/health/ready"
+      classification: "readiness"
+      purpose: "Report whether the backend process is ready to receive real application traffic."
+  rules:
+    - id: "HC-001"
+      rule: "IoTable backend MUST expose /health, /health/live, and /health/ready."
+    - id: "HC-002"
+      rule: "/health MUST behave as a liveness-compatible alias."
+    - id: "HC-003"
+      rule: "/health/live MUST NOT fail because of database, cache, background job, or external dependency unavailability."
+    - id: "HC-004"
+      rule: "/health/ready MUST fail when a required dependency prevents safe request handling."
+
+liveness_policy:
+  endpoint: "/health/live"
+  dependency_checks_allowed: false
+  success_condition: "backend_process_can_respond_to_http"
+  failure_meaning: "backend_process_is_not_responding_to_basic_http_requests"
+  rules:
+    - id: "HC-LIVE-001"
+      rule: "Liveness MUST check process responsiveness, not business readiness."
+    - id: "HC-LIVE-002"
+      rule: "A temporary database outage MUST NOT cause /health/live to fail."
+    - id: "HC-LIVE-003"
+      rule: "A saturated background job queue MUST NOT cause /health/live to fail."
+
+readiness_policy:
+  endpoint: "/health/ready"
+  scope_resolution:
+    platform_host:
+      host: "platform.iotables.net"
+      readiness_scope: "platform"
+      database_checks:
+        - "platform_database_connectivity"
+        - "database_migration_state"
+    tenant_host:
+      host: "{tenant}.iotables.net"
+      readiness_scope: "tenant"
+      database_checks:
+        - "platform_database_connectivity"
+        - "tenant_database_connectivity"
+        - "database_migration_state"
+    rule: "Readiness scope MUST be resolved from the request host before running scoped dependency checks."
+  required_checks:
+    - id: "backend_configuration"
+      component_type: "configuration"
+      failure_status: "fail"
+      rule: "Required runtime configuration MUST be present."
+    - id: "platform_database_connectivity"
+      component_type: "datastore"
+      failure_status: "fail"
+      rule: "The backend MUST be able to connect to the platform database when serving platform-scope behavior."
+    - id: "tenant_database_connectivity"
+      component_type: "datastore"
+      failure_status: "fail"
+      rule: "The backend MUST be able to connect to the resolved tenant database when serving tenant-scope behavior."
+    - id: "database_migration_state"
+      component_type: "datastore"
+      failure_status: "fail"
+      rule: "The active database schema MUST match the schema version required by the deployed backend."
+    - id: "background_job_runtime"
+      component_type: "background_worker"
+      failure_status: "fail"
+      rule: "Required in-process background job runtime MUST be available."
+  rules:
+    - id: "HC-READY-001"
+      rule: "Readiness MUST verify dependencies required for safe request handling."
+    - id: "HC-READY-002"
+      rule: "Readiness MUST fail when the required database for the addressed scope is unreachable."
+    - id: "HC-READY-003"
+      rule: "Readiness MUST fail when required migrations are not applied."
+    - id: "HC-READY-004"
+      rule: "Readiness MUST fail when required runtime configuration is missing."
+    - id: "HC-READY-005"
+      rule: "Readiness MUST NOT include business-state checks such as open order count, active table count, menu item count, or tenant revenue."
+    - id: "HC-READY-006"
+      rule: "A readiness request for platform.iotables.net MUST evaluate platform-scope readiness."
+    - id: "HC-READY-007"
+      rule: "A readiness request for a tenant host matching {tenant}.iotables.net MUST evaluate readiness for that resolved tenant."
+    - id: "HC-READY-008"
+      rule: "Release verification MUST check readiness for platform.iotables.net and at least one provisioned active tenant host."
+
+response_contract:
+  content_type: "application/health+json"
+  status_values:
+    - "pass"
+    - "warn"
+    - "fail"
+  required_fields:
+    - "status"
+    - "service"
+    - "version"
+    - "releaseId"
+    - "checks"
+  http_status_mapping:
+    pass: 200
+    warn: 200
+    fail: 503
+  rules:
+    - id: "HC-RESP-001"
+      rule: "Health responses MUST use application/health+json."
+    - id: "HC-RESP-002"
+      rule: "Health responses MUST include status, service, version, releaseId, and checks."
+    - id: "HC-RESP-003"
+      rule: "A failed health response MUST use HTTP 503."
+    - id: "HC-RESP-004"
+      rule: "A health response MUST NOT include secrets, connection strings, token values, customer session identifiers, bill content, order content, or firmware secrets."
+
+exposure_policy:
+  public_exposure:
+    health_alias: "allowed"
+    health_live: "allowed"
+    health_ready: "restricted"
+  rules:
+    - id: "HC-EXP-001"
+      rule: "/health and /health/live MAY be exposed through the reverse proxy for uptime monitoring."
+    - id: "HC-EXP-002"
+      rule: "/health/ready MUST be restricted to trusted operational callers because readiness detail can expose internal dependency names."
+    - id: "HC-EXP-003"
+      rule: "Health endpoints MUST NOT require platform_owner or tenant staff authentication when called by trusted operational infrastructure."
+
+release_gate_integration:
+  required_checks:
+    - "GET /health/live returns HTTP 200 with status pass"
+    - "GET /health/ready on platform.iotables.net returns HTTP 200 with status pass after deployment"
+    - "GET /health/ready on a provisioned active tenant host returns HTTP 200 with status pass after deployment"
+    - "GET /health/ready returns HTTP 503 with status fail when a required platform-scope test dependency is intentionally unavailable"
+    - "GET /health/ready returns HTTP 503 with status fail when a required tenant-scope test dependency is intentionally unavailable for the checked tenant host"
+  rules:
+    - id: "HC-RG-001"
+      rule: "Release verification MUST include liveness and readiness checks against the deployed backend."
+    - id: "HC-RG-002"
+      rule: "Release verification MUST prove that readiness can fail closed for a required dependency."
+
+source_alignment:
+  authoritative_project_documents:
+    - "specs/01-product/product-baseline.yaml"
+    - "specs/02-system-architecture/architecture-style.yaml"
+    - "specs/11-testing-verification/test-taxonomy.yaml"
+    - "specs/15-engineering-rules/technology-version-baseline.yaml"
+  external_references:
+    - id: "EXT-HC-001"
+      source: "Microsoft ASP.NET Core health checks documentation"
+      url: "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks"
+      usage: "Supports ASP.NET Core health check implementation as the backend stack mechanism."
+    - id: "EXT-HC-002"
+      source: "Kubernetes liveness, readiness, and startup probes documentation"
+      url: "https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/"
+      usage: "Supports the liveness and readiness separation used by IoTable operational probes."
+    - id: "EXT-HC-003"
+      source: "IETF Health Check Response Format for HTTP APIs draft"
+      url: "https://datatracker.ietf.org/doc/html/draft-inadarei-api-health-check-06"
+      usage: "Supports the application/health+json media type and pass, warn, fail response status values used by IoTable health responses."
+  reference_fit_rule: "External references define operational probe convention and framework mechanism; IoTable endpoint names and readiness checks are binding only as written in this document."
+
+forbidden_behavior:
+  - "single_health_endpoint_that_mixes_liveness_and_readiness"
+  - "database_dependency_failure_causing_liveness_failure"
+  - "business_state_check_inside_readiness"
+  - "health_response_exposing_secrets"
+  - "public_unrestricted_readiness_detail"
+
+open_questions:
+  []
+
+done_when:
+  - "health_endpoint_paths_are_defined"
+  - "liveness_policy_is_defined"
+  - "readiness_policy_is_defined"
+  - "response_contract_is_defined"
+  - "exposure_policy_is_defined"
+  - "release_gate_health_checks_are_defined"
+  - "slo_and_recovery_values_are_defined_in_slo_recovery_targets"

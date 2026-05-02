@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/00-meta/research-policy.schema.json",
+  "title": "IoTable Research Policy Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "research_triggers",
+    "technology_selection_policy",
+    "fit_criteria_order",
+    "source_order",
+    "research_output_statuses",
+    "research_record_format",
+    "prohibited_research_behaviors",
+    "recommendation_policy",
+    "reference_model_policy",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "research_triggers": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/trigger_record" } },
+    "technology_selection_policy": { "$ref": "#/$defs/object_record" },
+    "fit_criteria_order": { "$ref": "#/$defs/string_array" },
+    "source_order": { "$ref": "#/$defs/string_array" },
+    "research_output_statuses": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/status_record" } },
+    "research_record_format": { "$ref": "#/$defs/object_record" },
+    "prohibited_research_behaviors": { "$ref": "#/$defs/string_array" },
+    "recommendation_policy": { "$ref": "#/$defs/object_record" },
+    "reference_model_policy": { "$ref": "#/$defs/object_record" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "00-meta.research-policy" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/00-meta/research-policy.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "trigger_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trigger", "action"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^RT-[0-9]{3}$" },
+        "trigger": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 }
+      }
+    },
+    "status_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "meaning"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "meaning": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

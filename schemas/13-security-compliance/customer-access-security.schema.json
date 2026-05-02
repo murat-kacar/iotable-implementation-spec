@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/13-security-compliance/customer-access-security.schema.json",
+  "title": "IoTable Customer Access Security Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "security_priority",
+    "customer_access_model",
+    "conceptual_model",
+    "qr_token_security",
+    "session_security",
+    "bill_visibility_policy",
+    "cart_policy",
+    "edge_protection",
+    "rate_limiting",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "security_priority": { "$ref": "#/$defs/object_record" },
+    "customer_access_model": { "$ref": "#/$defs/object_record" },
+    "conceptual_model": { "$ref": "#/$defs/object_record" },
+    "qr_token_security": { "$ref": "#/$defs/object_record" },
+    "session_security": { "$ref": "#/$defs/object_record" },
+    "bill_visibility_policy": { "$ref": "#/$defs/object_record" },
+    "cart_policy": { "$ref": "#/$defs/object_record" },
+    "edge_protection": { "$ref": "#/$defs/object_record" },
+    "rate_limiting": { "$ref": "#/$defs/object_record" },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "open_decisions": { "type": "array" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "13-security-compliance.customer-access-security" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/13-security-compliance/customer-access-security.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    }
+  }
+}

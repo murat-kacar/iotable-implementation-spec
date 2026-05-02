@@ -1,0 +1,93 @@
+document:
+  id: "15-engineering-rules.technology-version-baseline"
+  title: "IoTable Technology Version Baseline"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/15-engineering-rules/technology-version-baseline.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define the sealed runtime, framework, language, package-manager, and infrastructure version baseline for IoTable implementation."
+  applies_to:
+    - "backend_runtime"
+    - "frontend_runtime"
+    - "frontend_framework"
+    - "ui_runtime"
+    - "language_tooling"
+    - "package_management"
+    - "database_runtime"
+    - "deployment_environment"
+
+baseline:
+  backend:
+    runtime: ".NET 10"
+    web_framework: "ASP.NET Core"
+    architecture_role: "single_modular_monolith_backend"
+  frontend:
+    application_framework: "Next.js 16.2.4"
+    ui_runtime: "React 19.2.5"
+    language: "TypeScript 6.0.3"
+    styling: "Tailwind CSS v4.0"
+    application_split:
+      - "platform_web"
+      - "tenant_web"
+  node_tooling:
+    runtime: "Node.js 24 LTS"
+    package_manager: "pnpm 11.0.3"
+  data:
+    relational_database: "PostgreSQL 17"
+  deployment:
+    operating_system: "Ubuntu VPS"
+
+binding_rules:
+  - id: "TVB-001"
+    rule: "IoTable backend implementation MUST use .NET 10 and ASP.NET Core."
+  - id: "TVB-002"
+    rule: "IoTable frontend implementation MUST use Next.js 16.2.4 and React 19.2.5."
+  - id: "TVB-003"
+    rule: "IoTable frontend implementation MUST use TypeScript 6.0.3."
+  - id: "TVB-004"
+    rule: "IoTable frontend styling baseline MUST use Tailwind CSS v4.0."
+  - id: "TVB-005"
+    rule: "IoTable Node tooling MUST use Node.js 24 LTS and pnpm 11.0.3."
+  - id: "TVB-006"
+    rule: "IoTable persistent relational storage MUST use PostgreSQL 17."
+  - id: "TVB-007"
+    rule: "IoTable frontend deployables MUST remain Next.js applications named platform_web and tenant_web."
+  - id: "TVB-008"
+    rule: "A version change in this baseline MUST update every dependent architecture, implementation, testing, and deployment specification in the same specification change."
+
+forbidden_technology_substitutions:
+  - id: "TVB-FORBID-001"
+    substitution: "Blazor"
+    reason: "Blazor is not part of the owner-approved IoTable frontend baseline."
+  - id: "TVB-FORBID-002"
+    substitution: "Razor UI"
+    reason: "Razor UI is not part of the owner-approved IoTable frontend baseline."
+  - id: "TVB-FORBID-003"
+    substitution: "single_frontend_app_for_platform_and_tenant"
+    reason: "Frontend isolation is defined as separate Next.js platform_web and tenant_web applications."
+  - id: "TVB-FORBID-004"
+    substitution: "frontend_framework_replacement_without_owner_decision"
+    reason: "Replacing Next.js or React changes the owner-approved implementation baseline."
+
+source_alignment:
+  authoritative_project_documents:
+    - "specs/02-system-architecture/architecture-style.yaml"
+    - "specs/02-system-architecture/frontend-application-split.yaml"
+    - "package.json"
+  reference_documents_used_as_inspiration:
+    - "C:\\Users\\Victus\\Desktop\\dr\\2\\docs\\reference\\architecture\\technology-inventory.md"
+    - "C:\\Users\\Victus\\Desktop\\dr\\2\\docs\\reference\\tunable-parameters.md"
+  reference_fit_rule: "Reference documents may inspire inventory shape but MUST NOT override IoTable's .NET plus Next.js plus React baseline."
+
+done_when:
+  - "backend_runtime_is_defined"
+  - "frontend_framework_and_ui_runtime_are_defined"
+  - "node_tooling_versions_are_defined"
+  - "database_runtime_is_defined"
+  - "forbidden_frontend_substitutions_are_defined"
+  - "dependent_specifications_are_listed"

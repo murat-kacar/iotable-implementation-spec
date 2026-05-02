@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/00-meta/llm-execution-policy.schema.json",
+  "title": "IoTable LLM Execution Policy Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "session_bootstrap",
+    "execution_modes",
+    "allowed_actions",
+    "prohibited_actions",
+    "blocker_policy",
+    "specification_write_rules",
+    "implementation_task_execution_rules",
+    "reporting_policy",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/object_record" },
+    "session_bootstrap": { "$ref": "#/$defs/object_record" },
+    "execution_modes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/execution_mode" } },
+    "allowed_actions": { "$ref": "#/$defs/string_array" },
+    "prohibited_actions": { "$ref": "#/$defs/string_array" },
+    "blocker_policy": { "$ref": "#/$defs/object_record" },
+    "specification_write_rules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/rule_record" } },
+    "implementation_task_execution_rules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/implementation_rule_record" } },
+    "reporting_policy": { "$ref": "#/$defs/object_record" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "string_array": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "00-meta.llm-execution-policy" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/00-meta/llm-execution-policy.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "execution_mode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "required_behaviors"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "required_behaviors": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SWR-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "implementation_rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ITER-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

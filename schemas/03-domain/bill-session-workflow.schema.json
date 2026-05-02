@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/03-domain/bill-session-workflow.schema.json",
+  "title": "IoTable Bill Session Workflow Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "bill_session_model",
+    "bill_lifecycle_states",
+    "order_attachment_policy",
+    "commands",
+    "workflows",
+    "manual_payment_policy",
+    "authorization_policy",
+    "bill_total_policy",
+    "customer_visibility_policy",
+    "anti_abuse_rules",
+    "forbidden_behavior",
+    "open_decisions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "type": "object", "additionalProperties": true },
+    "purpose": { "type": "object", "additionalProperties": true },
+    "bill_session_model": { "type": "object", "additionalProperties": true },
+    "bill_lifecycle_states": { "type": "object", "additionalProperties": true },
+    "order_attachment_policy": { "type": "object", "additionalProperties": true },
+    "commands": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "workflows": { "type": "object", "additionalProperties": true },
+    "manual_payment_policy": { "type": "object", "additionalProperties": true },
+    "authorization_policy": { "type": "object", "additionalProperties": true },
+    "bill_total_policy": { "type": "object", "additionalProperties": true },
+    "customer_visibility_policy": { "type": "object", "additionalProperties": true },
+    "anti_abuse_rules": { "type": "array", "items": { "type": "string" } },
+    "forbidden_behavior": { "type": "array", "items": { "type": "string" } },
+    "open_decisions": { "type": "array" },
+    "done_when": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,314 @@
+document:
+  id: "05-identity-access.permission-catalog"
+  title: "IoTable Permission Catalog and Role Matrix"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/05-identity-access/permission-catalog.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define platform and tenant roles, permission namespaces, fixed role-permission bundles, and backend enforcement rules."
+  applies_to:
+    - "platform_control_plane"
+    - "tenant_setup_console"
+    - "floor_cash_workspace"
+    - "station_board"
+    - "tenant_internal_api"
+    - "platform_api"
+
+permission_model:
+  model: "fixed_roles_with_fixed_permission_bundles"
+  custom_roles: false
+  custom_permission_editing: false
+  ui_assignment_unit: "role"
+  backend_enforcement_unit: "permission"
+  rules:
+    - "Users MUST be assigned roles for operational manageability."
+    - "Backend authorization MUST enforce permissions, not role names."
+    - "Role permission bundles MUST be fixed in the current product version."
+    - "Tenant users MUST NOT create custom roles."
+    - "Tenant users MUST NOT edit permission bundles."
+    - "Platform permissions and tenant permissions MUST use separate namespaces."
+    - "Customer diner access MUST NOT use staff roles or tenant staff permissions."
+
+role_catalog:
+  platform_roles:
+    - id: "platform_owner"
+      scope: "platform"
+      purpose: "Manage tenant lifecycle, provisioning, platform jobs, platform audit, platform settings, and system health."
+      permission_bundle: "all_platform_permissions"
+  tenant_roles:
+    - id: "tenant_owner"
+      scope: "tenant"
+      purpose: "Own and administer the tenant with full tenant authority."
+      permission_bundle: "all_tenant_permissions"
+    - id: "tenant_admin"
+      scope: "tenant"
+      purpose: "Administer tenant configuration and operations except ownership and danger-zone actions."
+    - id: "tenant_manager"
+      scope: "tenant"
+      purpose: "Manage day-to-day tenant configuration and operations."
+    - id: "cashier"
+      scope: "tenant"
+      purpose: "Manage table bills, manual payment recording, and bill closure."
+    - id: "floor_staff"
+      scope: "tenant"
+      purpose: "Track table and order service flow and mark served items."
+    - id: "station_operator"
+      scope: "tenant"
+      purpose: "Operate assigned station work regardless of station type."
+    - id: "accountant"
+      scope: "tenant"
+      purpose: "Read adisyon and manual payment records without operational mutation authority."
+
+permission_namespaces:
+  platform: "platform.*"
+  tenant: "tenant.*"
+  rules:
+    - "platform.* permissions MUST NOT be granted to tenant roles."
+    - "tenant.* permissions MUST NOT grant platform control-plane authority."
+
+platform_permissions:
+  tenant_lifecycle:
+    - "platform.tenants.view"
+    - "platform.tenants.create"
+    - "platform.tenants.suspend"
+    - "platform.tenants.reactivate"
+    - "platform.tenants.deactivate"
+  provisioning:
+    - "platform.provisioning.view"
+    - "platform.provisioning.retry"
+  schema_jobs:
+    - "platform.schema_jobs.view"
+    - "platform.schema_jobs.create"
+  jobs:
+    - "platform.jobs.view"
+  audit:
+    - "platform.audit.view"
+  settings:
+    - "platform.settings.view"
+    - "platform.settings.update"
+  health:
+    - "platform.health.view"
+
+tenant_permissions:
+  tenant_profile:
+    - "tenant.profile.view"
+    - "tenant.profile.update"
+  setup:
+    - "tenant.setup.view"
+    - "tenant.setup.complete"
+  staff:
+    - "tenant.staff.view"
+    - "tenant.staff.invite"
+    - "tenant.staff.update"
+    - "tenant.staff.disable"
+    - "tenant.staff.assign_roles"
+  tables:
+    - "tenant.tables.view"
+    - "tenant.tables.create"
+    - "tenant.tables.update"
+    - "tenant.tables.disable"
+  firmware:
+    - "tenant.firmware.generate"
+    - "tenant.firmware.download"
+  stations:
+    - "tenant.stations.view"
+    - "tenant.stations.create"
+    - "tenant.stations.update"
+    - "tenant.stations.disable"
+  menu:
+    - "tenant.menu.view"
+    - "tenant.menu.categories.manage"
+    - "tenant.menu.items.create"
+    - "tenant.menu.items.update"
+    - "tenant.menu.items.disable"
+    - "tenant.menu.prices.update"
+    - "tenant.menu.item_station_routing.update"
+  service_floor:
+    - "tenant.floor.view"
+    - "tenant.tables.state.view"
+    - "tenant.orders.view"
+    - "tenant.orders.cancel_before_station_acceptance"
+    - "tenant.orders.items.mark_served"
+  stations_workflow:
+    - "tenant.station_tickets.view_assigned"
+    - "tenant.station_tickets.accept"
+    - "tenant.station_tickets.mark_preparing"
+    - "tenant.station_tickets.mark_ready"
+  bills:
+    - "tenant.bills.view"
+    - "tenant.bills.close"
+    - "tenant.bills.reopen"
+  manual_payments:
+    - "tenant.manual_payments.view"
+    - "tenant.manual_payments.record"
+  tenant_audit:
+    - "tenant.audit.view"
+  settings:
+    - "tenant.settings.view"
+    - "tenant.settings.update"
+
+role_permission_matrix:
+  platform_owner:
+    includes: "all_platform_permissions"
+  tenant_owner:
+    includes: "all_tenant_permissions"
+  tenant_admin:
+    include_groups:
+      - "tenant_profile"
+      - "setup"
+      - "staff"
+      - "tables"
+      - "firmware"
+      - "stations"
+      - "menu"
+      - "service_floor"
+      - "stations_workflow"
+      - "bills"
+      - "manual_payments"
+      - "tenant_audit"
+      - "settings"
+    exclusions:
+      - "tenant.danger_zone.*"
+      - "tenant.ownership.transfer"
+  tenant_manager:
+    permissions:
+      - "tenant.profile.view"
+      - "tenant.setup.view"
+      - "tenant.tables.view"
+      - "tenant.tables.create"
+      - "tenant.tables.update"
+      - "tenant.stations.view"
+      - "tenant.stations.create"
+      - "tenant.stations.update"
+      - "tenant.menu.view"
+      - "tenant.menu.categories.manage"
+      - "tenant.menu.items.create"
+      - "tenant.menu.items.update"
+      - "tenant.menu.items.disable"
+      - "tenant.menu.prices.update"
+      - "tenant.menu.item_station_routing.update"
+      - "tenant.floor.view"
+      - "tenant.tables.state.view"
+      - "tenant.orders.view"
+      - "tenant.orders.cancel_before_station_acceptance"
+      - "tenant.orders.items.mark_served"
+      - "tenant.station_tickets.view_assigned"
+      - "tenant.station_tickets.accept"
+      - "tenant.station_tickets.mark_preparing"
+      - "tenant.station_tickets.mark_ready"
+      - "tenant.bills.view"
+      - "tenant.manual_payments.view"
+      - "tenant.settings.view"
+  cashier:
+    permissions:
+      - "tenant.floor.view"
+      - "tenant.tables.state.view"
+      - "tenant.orders.view"
+      - "tenant.orders.cancel_before_station_acceptance"
+      - "tenant.bills.view"
+      - "tenant.bills.close"
+      - "tenant.manual_payments.view"
+      - "tenant.manual_payments.record"
+  floor_staff:
+    permissions:
+      - "tenant.floor.view"
+      - "tenant.tables.state.view"
+      - "tenant.orders.view"
+      - "tenant.orders.cancel_before_station_acceptance"
+      - "tenant.orders.items.mark_served"
+      - "tenant.bills.view"
+  station_operator:
+    permissions:
+      - "tenant.station_tickets.view_assigned"
+      - "tenant.station_tickets.accept"
+      - "tenant.station_tickets.mark_preparing"
+      - "tenant.station_tickets.mark_ready"
+  accountant:
+    read_only: true
+    permissions:
+      - "tenant.bills.view"
+      - "tenant.manual_payments.view"
+      - "tenant.audit.view"
+
+operation_authorization_rules:
+  - id: "PAR-001"
+    operation: "platform tenant lifecycle actions"
+    required_permissions:
+      - "platform.tenants.suspend"
+      - "platform.tenants.reactivate"
+      - "platform.tenants.deactivate"
+    rules:
+      - "Only platform_owner MAY perform platform tenant lifecycle actions."
+  - id: "PAR-002"
+    operation: "tenant staff role assignment"
+    required_permission: "tenant.staff.assign_roles"
+    rules:
+      - "Tenant role assignment MUST remain tenant-scoped."
+      - "Tenant role assignment MUST NOT grant platform permissions."
+  - id: "PAR-003"
+    operation: "order cancellation before station acceptance"
+    required_permission: "tenant.orders.cancel_before_station_acceptance"
+    rules:
+      - "Staff MAY cancel an order only before station acceptance."
+      - "After station acceptance, cancellation requires an authorized tenant manager or tenant admin flow."
+  - id: "PAR-004"
+    operation: "station workflow mutation"
+    required_permissions:
+      - "tenant.station_tickets.accept"
+      - "tenant.station_tickets.mark_preparing"
+      - "tenant.station_tickets.mark_ready"
+    rules:
+      - "Station workflow mutations MUST be limited to assigned station context when station assignment exists."
+  - id: "PAR-005"
+    operation: "bill closure"
+    required_permission: "tenant.bills.close"
+    rules:
+      - "Bill closure MUST be performed by authorized cashier, tenant_manager, tenant_admin, or tenant_owner."
+      - "Bill closure records external manual payment status only."
+  - id: "PAR-006"
+    operation: "accountant access"
+    required_permissions:
+      - "tenant.bills.view"
+      - "tenant.manual_payments.view"
+    rules:
+      - "Accountant access MUST be read-only."
+      - "Accountant access MUST NOT mutate bills, payments, menu, stations, tables, staff, or orders."
+  - id: "PAR-007"
+    operation: "table-specific firmware generation and download"
+    required_permissions:
+      - "tenant.firmware.generate"
+      - "tenant.firmware.download"
+    rules:
+      - "Firmware generation and download MUST be limited to tenant_owner and tenant_admin in the initial product version."
+      - "tenant_manager MUST NOT receive firmware generation or firmware download permissions in the initial product version."
+      - "Firmware artifacts MUST be treated as tenant secrets."
+
+forbidden_behavior:
+  - "custom_roles_in_first_version"
+  - "tenant_editable_permission_bundles"
+  - "backend_authorization_by_role_name_only"
+  - "tenant_role_granting_platform_permission"
+  - "platform_role_used_as_tenant_staff_role"
+  - "customer_diner_using_staff_permission_model"
+  - "kitchen_operator_role"
+  - "accountant_mutation_permissions"
+  - "firmware_permission_granted_to_tenant_manager_initial_version"
+
+open_decisions: []
+
+done_when:
+  - "permission_model_is_defined"
+  - "platform_role_catalog_is_defined"
+  - "tenant_role_catalog_is_defined"
+  - "permission_namespaces_are_defined"
+  - "platform_permissions_are_defined"
+  - "tenant_permissions_are_defined"
+  - "firmware_permissions_are_defined"
+  - "role_permission_matrix_is_defined"
+  - "operation_authorization_rules_are_defined"
+  - "forbidden_permission_behavior_is_defined"
