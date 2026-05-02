@@ -10,8 +10,9 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define tenant staff identity API contracts for invite validation, invite activation, login, logout, current user, password flows, staff user administration, role assignment, disable behavior, and tenant-domain-only authentication."
+  rule: "Define tenant identity API contracts for tenant owner activation, staff invite validation, staff invite activation, login, logout, current user, password flows, staff user administration, role assignment, disable behavior, and tenant-domain-only authentication."
   applies_to:
+    - "tenant_owner_activation"
     - "tenant_staff_identity"
     - "tenant_staff_activation"
     - "tenant_authentication"
@@ -27,19 +28,19 @@ api_policy:
   authorization_model: "permission_based"
   hard_delete_endpoint_available: false
   rules:
-    - "Tenant staff identity APIs MUST be served only from tenant domains."
-    - "Tenant staff identity APIs MUST NOT be served from platform.iotables.net."
+    - "Tenant identity APIs MUST be served only from tenant domains."
+    - "Tenant identity APIs MUST NOT be served from platform.iotables.net."
     - "Tenant staff authentication MUST resolve exactly one tenant database from the request subdomain."
-    - "Tenant staff identity APIs MUST NOT query or mutate another tenant database."
-    - "Tenant staff identity APIs MUST NOT store tenant identity data in the platform database."
-    - "Tenant staff identity APIs MUST enforce permissions, not role names."
+    - "Tenant identity APIs MUST NOT query or mutate another tenant database."
+    - "Tenant identity APIs MUST NOT store tenant identity data in the platform database."
+    - "Tenant identity APIs MUST enforce permissions, not role names."
     - "No hard-delete staff endpoint MUST exist in the initial product version."
 
 route_families:
   public_tenant_auth: "https://{tenant}.iotables.net/api/auth/**"
   internal_staff_admin: "https://{tenant}.iotables.net/api/internal/staff/**"
   rules:
-    - "Invite validation, invite activation, login, logout, current user, and password endpoints belong to api/auth."
+    - "Owner activation, invite validation, invite activation, login, logout, current user, and password endpoints belong to api/auth."
     - "Staff user listing, update, disable, and role assignment endpoints belong to api/internal/staff."
 
 common_contract_rules:
@@ -51,18 +52,52 @@ common_contract_rules:
   token_storage: "hash_only"
   idempotency:
     required_for:
+      - "owner_activation"
       - "invite_activation"
       - "password_reset"
       - "staff_disable"
       - "role_assignment"
   rules:
     - "Validation errors MUST use ProblemDetails."
+    - "Owner activation token plaintext MUST NOT be logged."
     - "Invite token plaintext MUST NOT be logged."
     - "Password plaintext MUST NOT be logged."
     - "Password hashes MUST NOT be returned by any API."
     - "Two-factor secrets MUST NOT be returned by any API except explicit future setup flows."
 
 endpoints:
+  owner_activation:
+    - id: "TSI-000"
+      method: "GET"
+      path: "/auth/owner-activation/validate"
+      authentication_required: false
+      query_parameters:
+        - "token"
+      purpose: "Validate a tenant owner activation token created during platform provisioning and return non-secret metadata needed for activation UI."
+      response: "ValidateTenantOwnerActivationResponse"
+      rules:
+        - "Owner activation validation MUST use tenant_owner_activation_invites in the resolved tenant database."
+        - "Owner activation validation MUST check token hash, invite status, expiration, and tenant database context."
+        - "Owner activation validation MUST NOT activate the user."
+        - "Owner activation validation MUST NOT return invite_token_hash."
+        - "Owner activation validation MUST NOT query the platform database for token verification."
+    - id: "TSI-000A"
+      method: "POST"
+      path: "/auth/owner-activation/activate"
+      authentication_required: false
+      purpose: "Activate the tenant owner from a valid one-time owner activation token and initial password."
+      request: "ActivateTenantOwnerRequest"
+      response: "ActivateTenantOwnerResponse"
+      idempotency_required: true
+      rules:
+        - "Owner activation MUST require a valid unexpired pending token from tenant_owner_activation_invites."
+        - "Owner activation MUST create a tenant_users row in the resolved tenant database."
+        - "Owner activation MUST create tenant_user_roles assignment with tenant_owner role."
+        - "Owner activation MUST mark the owner activation invite accepted and link accepted_user_id."
+        - "Owner activation MUST reject duplicate active normalized email within the same tenant database."
+        - "Owner activation MUST NOT use staff_invites."
+        - "Owner activation MUST NOT be available from platform domain."
+
   invite_activation:
     - id: "TSI-001"
       method: "GET"
@@ -73,6 +108,7 @@ endpoints:
       purpose: "Validate a staff invite token and return non-secret invite metadata needed for activation UI."
       response: "ValidateStaffInviteResponse"
       rules:
+        - "Invite validation MUST use staff_invites in the resolved tenant database."
         - "Invite validation MUST check token hash, invite status, expiration, and tenant database context."
         - "Invite validation MUST NOT activate the user."
         - "Invite validation MUST NOT return invite_token_hash."
@@ -91,6 +127,7 @@ endpoints:
         - "Invite activation MUST mark the invite accepted and link accepted_user_id."
         - "Invite activation MUST reject tenant_owner and platform roles."
         - "Invite activation MUST reject duplicate active normalized email within the same tenant database."
+        - "Invite activation MUST NOT use tenant_owner_activation_invites."
 
   session_authentication:
     - id: "TSI-100"
@@ -199,6 +236,31 @@ endpoints:
         - "Role assignment MUST be audited."
 
 request_response_contracts:
+  ActivateTenantOwnerRequest:
+    required:
+      - "token"
+      - "password"
+      - "display_name"
+    optional:
+      - "phone"
+    rules:
+      - "Password MUST satisfy password policy."
+      - "Token plaintext MUST NOT be logged."
+      - "Activation MUST assign tenant_owner role."
+  ValidateTenantOwnerActivationResponse:
+    fields:
+      - "valid"
+      - "expired"
+      - "invite_status"
+      - "owner_email"
+      - "owner_full_name"
+      - "tenant_display_name"
+      - "role"
+    fixed_values:
+      role: "tenant_owner"
+    forbidden_fields:
+      - "invite_token_hash"
+      - "password_hash"
   ActivateStaffInviteRequest:
     required:
       - "token"
@@ -256,6 +318,8 @@ request_response_contracts:
 
 security_and_audit:
   audit_required_for:
+    - "tenant_owner_activation_validated"
+    - "tenant_owner_activated"
     - "staff_invite_activated"
     - "staff_login_success"
     - "staff_login_failed"
@@ -265,23 +329,30 @@ security_and_audit:
     - "staff_user_disabled"
     - "staff_role_assigned"
   rules:
+    - "Tenant identity API MUST not log owner activation token plaintext."
     - "Tenant identity API MUST not log invite token plaintext."
     - "Tenant identity API MUST not log password plaintext."
     - "Tenant identity API MUST not return password hashes."
-    - "Staff disable and role assignment MUST be audited."
+    - "Owner activation, staff disable, and role assignment MUST be audited."
     - "Login failure responses SHOULD avoid user enumeration."
 
 forbidden_behavior:
+  - "tenant_identity_api_on_platform_domain"
   - "tenant_staff_identity_api_on_platform_domain"
   - "tenant_staff_login_using_platform_database"
+  - "owner_activation_token_validation_using_platform_database"
   - "tenant_staff_api_cross_tenant_query"
   - "tenant_staff_identity_data_in_platform_database"
+  - "owner_activation_invite_in_platform_database"
   - "hard_delete_staff_endpoint_initial_version"
   - "disabled_staff_user_login"
   - "duplicate_active_email_within_same_tenant"
   - "tenant_owner_role_assigned_from_staff_invite_activation"
   - "tenant_owner_role_assigned_from_generic_staff_role_endpoint_initial_version"
   - "platform_role_assigned_from_tenant_staff_api"
+  - "staff_invite_activation_using_owner_activation_table"
+  - "owner_activation_using_staff_invites_table"
+  - "plaintext_owner_activation_token_logging"
   - "plaintext_invite_token_logging"
   - "plaintext_password_logging"
   - "password_hash_returned_by_api"
@@ -289,9 +360,11 @@ forbidden_behavior:
 open_decisions: []
 
 done_when:
-  - "tenant_staff_identity_api_policy_is_defined"
+  - "tenant_identity_api_policy_is_defined"
   - "route_families_are_defined"
   - "common_contract_rules_are_defined"
+  - "owner_activation_validation_endpoint_is_defined"
+  - "owner_activation_endpoint_is_defined"
   - "invite_validation_endpoint_is_defined"
   - "invite_activation_endpoint_is_defined"
   - "login_logout_me_endpoints_are_defined"
