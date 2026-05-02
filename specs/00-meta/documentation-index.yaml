@@ -193,6 +193,10 @@ specification_sections:
         path: "specs/07-api-contracts/customer-order-api.yaml"
         schema_file: "schemas/07-api-contracts/customer-order-api.schema.json"
         status: "draft"
+      - id: "07-api-contracts.bill-session-api"
+        path: "specs/07-api-contracts/bill-session-api.yaml"
+        schema_file: "schemas/07-api-contracts/bill-session-api.schema.json"
+        status: "draft"
 
   - id: "08-data-contracts"
     path: "specs/08-data-contracts"
