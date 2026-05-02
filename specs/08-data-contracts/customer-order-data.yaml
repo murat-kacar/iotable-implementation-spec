@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define tenant-owned customer QR token, customer session, cart, order, order item, and station ticket data contracts for customer ordering flows."
+  rule: "Define tenant-owned customer QR token, customer session, cart, order, order item, station ticket, and bill attachment data rules for customer ordering flows."
   applies_to:
     - "tenant_database"
     - "customer_qr_access"
@@ -18,6 +18,7 @@ purpose:
     - "customer_carts"
     - "customer_orders"
     - "station_tickets"
+    - "bill_sessions"
     - "table_qr_security"
 
 isolation_principle:
@@ -78,11 +79,14 @@ order_model:
   one_order_has_many_order_items: true
   station_tickets_created_per_station: true
   station_tickets_grouped_by_station: true
+  bill_attachment_required_on_submit: true
   rules:
     - "One customer order submit MUST create exactly one order."
     - "One order MAY contain items routed to multiple stations."
     - "Station tickets MUST be created per station from order items."
     - "Station tickets MUST reference the parent order."
+    - "Customer order submit MUST attach the order to the table's active bill session through bill_orders."
+    - "If no active bill session exists, customer order submit MUST atomically create a bill session before bill_orders attachment."
 
 price_snapshot_policy:
   cart_item_price_snapshot_on_add: true
@@ -244,6 +248,7 @@ tables:
       - "one_submit_creates_one_order"
       - "customer_order_requires_customer_session"
       - "order_total_matches_order_items"
+      - "order_bill_ownership_is_represented_by_bill_orders"
 
   order_items:
     ownership: "tenant_database"
@@ -330,10 +335,13 @@ submit_transaction_rules:
     - "order_items"
     - "station_tickets"
     - "station_ticket_items"
+    - "bill_sessions_when_no_active_bill_exists"
+    - "bill_orders"
   updates:
     - "customer_sessions"
     - "customer_carts"
     - "customer_cart_items"
+    - "bill_sessions_totals"
   rules:
     - "Order submit MUST be atomic."
     - "Order submit MUST revalidate session active status inside the transaction."
@@ -341,6 +349,22 @@ submit_transaction_rules:
     - "Order submit MUST lock or mark submitted cart inside the transaction."
     - "Order submit MUST move customer session to submitted/offline inside the transaction."
     - "Order submit MUST create station tickets grouped by station inside the transaction."
+    - "Order submit MUST lock active bill lookup for the table inside the transaction."
+    - "Order submit MUST create a bill_sessions row when no active bill exists for the table."
+    - "Order submit MUST attach the created order to the active or newly-created bill through bill_orders."
+    - "Order submit MUST update bill session totals from server-side order item snapshots."
+
+bill_session_integration:
+  ownership_table: "bill_orders"
+  order_table_bill_session_id_allowed: false
+  auto_open_bill_if_none_exists: true
+  one_active_bill_per_table_required: true
+  rules:
+    - "orders MUST NOT own bill_session_id in the initial product version."
+    - "Bill ownership of orders MUST be represented by bill_orders."
+    - "Customer order submit MUST create bill_orders in the same transaction as orders."
+    - "Customer order submit MUST create bill_sessions first if no active bill session exists for the order table."
+    - "Customer order submit MUST fail if bill session state prevents attaching a new order."
 
 forbidden_behavior:
   - "customer_order_data_in_platform_database"
@@ -353,6 +377,9 @@ forbidden_behavior:
   - "multiple_active_carts_for_one_active_session"
   - "order_submit_without_price_revalidation"
   - "order_submit_without_station_routing_revalidation"
+  - "order_submit_without_bill_attachment"
+  - "order_submit_without_bill_total_recalculation"
+  - "order_table_owning_bill_session_id_initial_version"
   - "one_submit_creating_multiple_orders_initial_version"
   - "station_ticket_without_parent_order"
   - "customer_identity_required_initial_version"
@@ -375,4 +402,5 @@ done_when:
   - "station_tickets_table_is_defined"
   - "station_ticket_items_table_is_defined"
   - "submit_transaction_rules_are_defined"
+  - "bill_session_integration_is_defined"
   - "forbidden_customer_order_data_behavior_is_defined"
