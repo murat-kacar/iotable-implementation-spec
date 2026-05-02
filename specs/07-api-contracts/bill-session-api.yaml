@@ -59,6 +59,26 @@ common_contract_rules:
     - "Client-provided bill totals MUST NOT be trusted."
     - "Bill totals MUST be recalculated server-side from attached order item snapshots."
 
+common_error_contract:
+  format: "problem_details"
+  content_type: "application/problem+json"
+  fields:
+    - "type"
+    - "title"
+    - "status"
+    - "detail"
+    - "instance"
+    - "correlationId"
+    - "errors"
+  rules:
+    - "Every bill session API error response with a JSON body MUST use application/problem+json."
+    - "Validation failures MUST return 400 with field-level errors."
+    - "Authentication failures MUST return 401."
+    - "Authorization failures MUST return 403."
+    - "Missing resources MUST return 404."
+    - "Bill state conflicts and idempotency conflicts MUST return 409."
+    - "Unexpected failures MUST return 500 with correlationId."
+
 endpoints:
   customer_bill:
     - id: "BSA-001"

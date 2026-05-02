@@ -1,0 +1,142 @@
+document:
+  id: "12-operations-deployment.slo-recovery-targets"
+  title: "IoTable SLO and Recovery Targets"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/12-operations-deployment/slo-recovery-targets.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define IoTable service-level objectives, recovery targets, backup retention, and operational review rules."
+  applies_to:
+    - "release_verification"
+    - "operations_monitoring"
+    - "incident_response"
+    - "backup_restore"
+    - "health_checks"
+    - "customer_ordering"
+    - "device_realtime_endpoint"
+
+startup_probe_policy:
+  startup_probe_endpoint_required: false
+  rule: "IoTable does not define a separate startup health endpoint for the Ubuntu VPS deployment baseline."
+  rationale:
+    - "The deployment baseline is Ubuntu VPS with a single backend deployable."
+    - "/health/live and /health/ready are sufficient for the current process supervision and release verification model."
+    - "A startup probe endpoint requires a separate owner-approved operations decision when IoTable adopts a deployment environment that supports startup probes."
+
+availability_targets:
+  - id: "SLO-AVAIL-001"
+    scope: "backend_monthly_availability"
+    target: "99.5%"
+    measurement_window: "calendar_month"
+    measurement_source: "health_check_and_request_success_monitoring"
+  - id: "SLO-AVAIL-002"
+    scope: "customer_ordering_monthly_availability"
+    target: "99.5%"
+    measurement_window: "calendar_month"
+    measurement_source: "customer_ordering_request_success_monitoring"
+
+latency_targets:
+  - id: "SLO-LAT-001"
+    scope: "api_p95_latency"
+    target_ms: 500
+    measurement_window: "rolling_30_days"
+    measurement_source: "server_request_duration_metrics"
+  - id: "SLO-LAT-002"
+    scope: "customer_order_submit_p95_latency"
+    target_ms: 1000
+    measurement_window: "rolling_30_days"
+    measurement_source: "customer_order_submit_duration_metrics"
+  - id: "SLO-LAT-003"
+    scope: "qr_consume_p95_latency"
+    target_ms: 500
+    measurement_window: "rolling_30_days"
+    measurement_source: "qr_consume_duration_metrics"
+  - id: "SLO-LAT-004"
+    scope: "health_ready_p95_latency"
+    target_ms: 250
+    measurement_window: "rolling_30_days"
+    measurement_source: "health_ready_duration_metrics"
+
+device_targets:
+  - id: "SLO-DEV-001"
+    scope: "websocket_reconnect_target"
+    target_value: 10
+    target_unit: "seconds"
+    measurement_window: "rolling_30_days"
+    measurement_source: "device_connection_metrics"
+  - id: "SLO-DEV-002"
+    scope: "qr_push_after_rotation_p95_latency"
+    target_value: 1000
+    target_unit: "milliseconds"
+    measurement_window: "rolling_30_days"
+    measurement_source: "device_qr_push_duration_metrics"
+
+backup_recovery_targets:
+  backup_retention_days: 30
+  rpo_hours: 24
+  rto_hours: 4
+  recovery_drill_interval_days: 90
+  rules:
+    - id: "SLO-REC-001"
+      rule: "Backups MUST be retained for 30 days."
+    - id: "SLO-REC-002"
+      rule: "IoTable recovery point objective MUST be 24 hours."
+    - id: "SLO-REC-003"
+      rule: "IoTable recovery time objective MUST be 4 hours."
+    - id: "SLO-REC-004"
+      rule: "A recovery drill MUST be performed at least once every 90 days."
+
+release_gate_rules:
+  - id: "SLO-RG-001"
+    rule: "Release verification MUST confirm that health-check release gate checks defined in specs/12-operations-deployment/health-checks.yaml pass."
+  - id: "SLO-RG-002"
+    rule: "A release MUST NOT knowingly ship with a broken backup path."
+  - id: "SLO-RG-003"
+    rule: "A release MUST record an operational blocker when current measurements show a breach of a defined availability, latency, device, or recovery target."
+
+revision_policy:
+  rule: "SLO and recovery target changes MUST be explicit specification changes."
+  allowed_reasons:
+    - "measured_production_baseline"
+    - "owner_approved_operational_risk_change"
+    - "infrastructure_model_change"
+    - "customer_contract_change"
+  forbidden_reasons:
+    - "silent_target_relaxation_after_failure"
+    - "untracked_metric_definition_change"
+    - "changing_targets_without_updating_release_gate_rules"
+
+source_alignment:
+  authoritative_project_documents:
+    - "specs/12-operations-deployment/health-checks.yaml"
+    - "specs/11-testing-verification/test-taxonomy.yaml"
+    - "specs/15-engineering-rules/technology-version-baseline.yaml"
+  external_references:
+    - id: "EXT-SLO-001"
+      source: "Google SRE Workbook error budget policy"
+      url: "https://sre.google/workbook/error-budget-policy/"
+      usage: "Supports SLO and operational review framing."
+    - id: "EXT-SLO-002"
+      source: "NIST contingency planning guidance"
+      url: "https://csrc.nist.gov/topics/security-and-privacy/security-programs-and-operations/contingency-planning"
+      usage: "Supports explicit recovery objective and contingency planning framing."
+  owner_decision:
+    decided_by: "project_owner"
+    decision: "Startup probe is not defined for the Ubuntu VPS baseline; initial SLO, RTO, RPO, backup retention, and recovery drill targets are accepted."
+
+open_questions: []
+
+done_when:
+  - "startup_probe_policy_is_closed"
+  - "availability_targets_are_defined"
+  - "latency_targets_are_defined"
+  - "device_targets_are_defined"
+  - "backup_recovery_targets_are_defined"
+  - "release_gate_rules_are_defined"
+  - "revision_policy_is_defined"
+  - "open_questions_are_closed"

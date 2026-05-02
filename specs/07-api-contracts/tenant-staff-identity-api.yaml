@@ -65,6 +65,26 @@ common_contract_rules:
     - "Password hashes MUST NOT be returned by any API."
     - "Two-factor secrets MUST NOT be returned by any API except explicit future setup flows."
 
+common_error_contract:
+  format: "problem_details"
+  content_type: "application/problem+json"
+  fields:
+    - "type"
+    - "title"
+    - "status"
+    - "detail"
+    - "instance"
+    - "correlationId"
+    - "errors"
+  rules:
+    - "Every tenant staff identity API error response with a JSON body MUST use application/problem+json."
+    - "Validation failures MUST return 400 with field-level errors."
+    - "Authentication failures MUST return 401."
+    - "Authorization failures MUST return 403."
+    - "Missing resources MUST return 404."
+    - "Token, password reset, invite, and lifecycle conflicts MUST return 409."
+    - "Unexpected failures MUST return 500 with correlationId."
+
 endpoints:
   owner_activation:
     - id: "TSI-000"

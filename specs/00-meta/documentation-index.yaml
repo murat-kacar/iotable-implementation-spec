@@ -244,14 +244,30 @@ specification_sections:
     schema_path: "schemas/11-testing-verification"
     purpose: "Defines unit, integration, contract, database change, end-to-end, security, and operational verification requirements."
     required: true
-    documents: []
+    documents:
+      - id: "11-testing-verification.acceptance-criteria"
+        path: "specs/11-testing-verification/acceptance-criteria.yaml"
+        schema_file: "schemas/11-testing-verification/acceptance-criteria.schema.json"
+        status: "draft"
+      - id: "11-testing-verification.test-taxonomy"
+        path: "specs/11-testing-verification/test-taxonomy.yaml"
+        schema_file: "schemas/11-testing-verification/test-taxonomy.schema.json"
+        status: "draft"
 
   - id: "12-operations-deployment"
     path: "specs/12-operations-deployment"
     schema_path: "schemas/12-operations-deployment"
     purpose: "Defines Ubuntu VPS deployment, configuration, health checks, recovery, backups, secret rotation, and maintenance."
     required: true
-    documents: []
+    documents:
+      - id: "12-operations-deployment.health-checks"
+        path: "specs/12-operations-deployment/health-checks.yaml"
+        schema_file: "schemas/12-operations-deployment/health-checks.schema.json"
+        status: "draft"
+      - id: "12-operations-deployment.slo-recovery-targets"
+        path: "specs/12-operations-deployment/slo-recovery-targets.yaml"
+        schema_file: "schemas/12-operations-deployment/slo-recovery-targets.schema.json"
+        status: "draft"
 
   - id: "13-security-compliance"
     path: "specs/13-security-compliance"
@@ -276,7 +292,11 @@ specification_sections:
     schema_path: "schemas/15-engineering-rules"
     purpose: "Defines coding standards, naming conventions, dependency rules, error handling, logging, and repository conventions."
     required: true
-    documents: []
+    documents:
+      - id: "15-engineering-rules.technology-version-baseline"
+        path: "specs/15-engineering-rules/technology-version-baseline.yaml"
+        schema_file: "schemas/15-engineering-rules/technology-version-baseline.schema.json"
+        status: "draft"
 
   - id: "16-research-decisions"
     path: "specs/16-research-decisions"

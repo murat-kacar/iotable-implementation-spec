@@ -1,10 +1,10 @@
-import Ajv from "ajv";
+import Ajv2020 from "ajv/dist/2020.js";
 import { glob } from "glob";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 
-const ajv = new Ajv({
+const ajv = new Ajv2020({
   allErrors: true,
   strict: true,
 });
@@ -46,7 +46,12 @@ for (const specFile of specFiles.sort()) {
 
   if (!valid) {
     const errors = validate.errors
-      ?.map((error) => `${error.instancePath || "/"} ${error.message}`)
+      ?.map((error) => {
+        const params = Object.keys(error.params).length > 0
+          ? ` ${JSON.stringify(error.params)}`
+          : "";
+        return `${error.instancePath || "/"} ${error.message}${params}`;
+      })
       .join("; ");
     failures.push(`${specFile}: ${errors}`);
   }

@@ -20,18 +20,175 @@
     "done_when"
   ],
   "properties": {
-    "document": { "type": "object", "additionalProperties": true },
-    "purpose": { "type": "object", "additionalProperties": true },
-    "isolation_principle": { "type": "object", "additionalProperties": true },
-    "common_columns": { "type": "object", "additionalProperties": true },
-    "bill_session_policy": { "type": "object", "additionalProperties": true },
-    "manual_payment_policy": { "type": "object", "additionalProperties": true },
-    "tables": { "type": "object", "additionalProperties": true },
-    "bill_close_data_rules": { "type": "object", "additionalProperties": true },
-    "bill_reopen_data_rules": { "type": "object", "additionalProperties": true },
-    "integration_with_customer_order_data": { "type": "object", "additionalProperties": true },
-    "forbidden_behavior": { "type": "array", "items": { "type": "string" } },
-    "open_decisions": { "type": "array" },
-    "done_when": { "type": "array", "items": { "type": "string" } }
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/purpose" },
+    "isolation_principle": { "$ref": "#/$defs/isolation_principle" },
+    "common_columns": { "$ref": "#/$defs/common_columns" },
+    "bill_session_policy": { "$ref": "#/$defs/bill_session_policy" },
+    "manual_payment_policy": { "$ref": "#/$defs/manual_payment_policy" },
+    "tables": { "$ref": "#/$defs/bill_tables" },
+    "bill_close_data_rules": { "$ref": "#/$defs/transaction_rules" },
+    "bill_reopen_data_rules": { "$ref": "#/$defs/transaction_rules" },
+    "integration_with_customer_order_data": { "$ref": "#/$defs/integration_with_customer_order_data" },
+    "forbidden_behavior": { "$ref": "#/$defs/string_array" },
+    "open_decisions": { "type": "array", "items": { "$ref": "#/$defs/open_decision" } },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "08-data-contracts.bill-session-data" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/08-data-contracts/bill-session-data.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "applies_to"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "applies_to": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "isolation_principle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "ownership", "rules"],
+      "properties": {
+        "model": { "type": "string", "const": "database_per_tenant" },
+        "ownership": { "type": "string", "const": "tenant_database" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "common_columns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_for_mutable_tables", "id_policy", "time_policy"],
+      "properties": {
+        "required_for_mutable_tables": { "$ref": "#/$defs/string_array" },
+        "id_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "generated_by"],
+          "properties": {
+            "type": { "type": "string", "const": "uuid" },
+            "generated_by": { "type": "string", "minLength": 1 }
+          }
+        },
+        "time_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timezone", "rules"],
+          "properties": {
+            "timezone": { "type": "string", "const": "utc" },
+            "rules": { "$ref": "#/$defs/string_array" }
+          }
+        }
+      }
+    },
+    "bill_session_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["one_active_bill_per_table", "customer_order_submit_auto_opens_bill_if_none_exists", "staff_pda_order_submit_auto_opens_bill_if_none_exists", "source_of_truth_for_total", "rules"],
+      "properties": {
+        "one_active_bill_per_table": { "type": "boolean" },
+        "customer_order_submit_auto_opens_bill_if_none_exists": { "type": "boolean" },
+        "staff_pda_order_submit_auto_opens_bill_if_none_exists": { "type": "boolean" },
+        "source_of_truth_for_total": { "type": "string", "const": "server_side_order_item_snapshots" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "manual_payment_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_payment_supported", "manual_payment_required_to_close", "payment_methods", "rules"],
+      "properties": {
+        "provider_payment_supported": { "type": "boolean", "const": false },
+        "manual_payment_required_to_close": { "type": "boolean" },
+        "partial_payment_supported_initial_version": { "type": "boolean" },
+        "overpayment_supported_initial_version": { "type": "boolean" },
+        "amount_must_match_bill_total_initial_version": { "type": "boolean" },
+        "payment_methods": { "$ref": "#/$defs/string_array" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "bill_tables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bill_sessions", "bill_orders", "manual_payments", "bill_reopen_events"],
+      "properties": {
+        "bill_sessions": { "$ref": "#/$defs/table_contract" },
+        "bill_orders": { "$ref": "#/$defs/table_contract" },
+        "manual_payments": { "$ref": "#/$defs/table_contract" },
+        "bill_reopen_events": { "$ref": "#/$defs/table_contract" }
+      }
+    },
+    "table_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ownership", "purpose", "primary_key", "columns"],
+      "properties": {
+        "ownership": { "type": "string", "const": "tenant_database" },
+        "purpose": { "type": "string", "minLength": 1 },
+        "primary_key": { "type": "string", "const": "id" },
+        "columns": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "allowed_statuses": { "$ref": "#/$defs/string_array" },
+        "allowed_opened_by_sources": { "$ref": "#/$defs/string_array" },
+        "allowed_attached_by_sources": { "$ref": "#/$defs/string_array" },
+        "allowed_payment_methods": { "$ref": "#/$defs/string_array" },
+        "allowed_previous_statuses": { "$ref": "#/$defs/string_array" },
+        "indexes": { "$ref": "#/$defs/string_array" },
+        "unique_constraints": { "$ref": "#/$defs/string_array" },
+        "constraints": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "transaction_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["atomic_operation", "updates", "creates", "rules"],
+      "properties": {
+        "atomic_operation": { "type": "boolean", "const": true },
+        "updates": { "$ref": "#/$defs/string_array" },
+        "creates": { "$ref": "#/$defs/string_array" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "integration_with_customer_order_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order_attachment", "rules"],
+      "properties": {
+        "order_attachment": { "type": "string", "const": "bill_orders" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "open_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "topic", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "accepted", "rejected"] }
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   }
 }

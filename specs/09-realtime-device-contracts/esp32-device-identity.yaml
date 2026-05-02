@@ -161,7 +161,7 @@ legacy_pairing_flow:
   status: "not_used_in_primary_model"
   rule: "The primary IoTable device model uses table-specific generated firmware instead of runtime pairing code."
   notes:
-    - "Pairing-code-based provisioning is reserved for possible future device setup UX, not the initial product version."
+    - "Pairing-code-based provisioning is outside the current product scope."
 
 realtime_connection:
   protocol: "WebSocket"

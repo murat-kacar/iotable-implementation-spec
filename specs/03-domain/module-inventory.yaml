@@ -280,10 +280,10 @@ modules:
     depends_on:
       - "customer_qr_presence"
       - "tenant_tables"
-    status: "requires_decision"
-    open_decision_refs:
-      - "Customer session / QR / bill membership model"
-      - "Individual customer order tracking granularity"
+    status: "defined"
+    source_documents:
+      - "specs/03-domain/customer-order-session-workflow.yaml"
+      - "specs/13-security-compliance/customer-access-security.yaml"
     done_when:
       - "customer_session_authority_defined"
       - "bill_membership_rules_defined"
@@ -485,9 +485,9 @@ modules:
     depends_on:
       - "tenant_tables"
       - "customer_qr_presence"
-    status: "requires_decision"
-    open_decision_refs:
-      - "ESP32 device identity model"
+    status: "defined"
+    source_documents:
+      - "specs/09-realtime-device-contracts/esp32-device-identity.yaml"
     done_when:
       - "device_identity_model_defined"
       - "device_binding_rules_defined"
@@ -582,22 +582,7 @@ module_dependency_rules:
   - id: "MDR-006"
     rule: "Excluded modules MUST remain out of implementation scope unless a new owner decision changes the product baseline."
 
-open_decisions:
-  - id: "MI-001"
-    topic: "Customer session, QR, and bill membership model."
-    status: "open"
-  - id: "MI-002"
-    topic: "ESP32 device identity model."
-    status: "open"
-  - id: "MI-003"
-    topic: "Admin panel application and deployment split."
-    status: "open"
-  - id: "MI-004"
-    topic: "Architecture style decision."
-    status: "open"
-  - id: "MI-005"
-    topic: "Detailed permission catalog and role-permission matrix."
-    status: "open"
+open_decisions: []
 
 done_when:
   - "all_major_business_capability_modules_are_defined"

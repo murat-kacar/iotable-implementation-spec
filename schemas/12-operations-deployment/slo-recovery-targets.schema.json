@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/12-operations-deployment/slo-recovery-targets.schema.json",
+  "title": "IoTable SLO and Recovery Targets Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "startup_probe_policy",
+    "availability_targets",
+    "latency_targets",
+    "device_targets",
+    "backup_recovery_targets",
+    "release_gate_rules",
+    "revision_policy",
+    "source_alignment",
+    "open_questions",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/purpose" },
+    "startup_probe_policy": { "$ref": "#/$defs/startup_probe_policy" },
+    "availability_targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/availability_target" }
+    },
+    "latency_targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/latency_target" }
+    },
+    "device_targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/device_target" }
+    },
+    "backup_recovery_targets": { "$ref": "#/$defs/backup_recovery_targets" },
+    "release_gate_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/release_gate_rule" }
+    },
+    "revision_policy": { "$ref": "#/$defs/revision_policy" },
+    "source_alignment": { "$ref": "#/$defs/source_alignment" },
+    "open_questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/open_question" }
+    },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "12-operations-deployment.slo-recovery-targets" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/12-operations-deployment/slo-recovery-targets.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "applies_to"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "applies_to": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "startup_probe_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startup_probe_endpoint_required", "rule", "rationale"],
+      "properties": {
+        "startup_probe_endpoint_required": { "type": "boolean", "const": false },
+        "rule": { "type": "string", "minLength": 1 },
+        "rationale": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "availability_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "scope", "target", "measurement_window", "measurement_source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SLO-AVAIL-[0-9]{3}$" },
+        "scope": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?%$" },
+        "measurement_window": { "type": "string", "minLength": 1 },
+        "measurement_source": { "type": "string", "minLength": 1 }
+      }
+    },
+    "latency_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "scope", "target_ms", "measurement_window", "measurement_source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SLO-LAT-[0-9]{3}$" },
+        "scope": { "type": "string", "minLength": 1 },
+        "target_ms": { "type": "integer", "minimum": 1 },
+        "measurement_window": { "type": "string", "minLength": 1 },
+        "measurement_source": { "type": "string", "minLength": 1 }
+      }
+    },
+    "device_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "scope", "target_value", "target_unit", "measurement_window", "measurement_source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SLO-DEV-[0-9]{3}$" },
+        "scope": { "type": "string", "minLength": 1 },
+        "target_value": { "type": "integer", "minimum": 1 },
+        "target_unit": { "type": "string", "enum": ["seconds", "milliseconds"] },
+        "measurement_window": { "type": "string", "minLength": 1 },
+        "measurement_source": { "type": "string", "minLength": 1 }
+      }
+    },
+    "backup_recovery_targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backup_retention_days", "rpo_hours", "rto_hours", "recovery_drill_interval_days", "rules"],
+      "properties": {
+        "backup_retention_days": { "type": "integer", "const": 30 },
+        "rpo_hours": { "type": "integer", "const": 24 },
+        "rto_hours": { "type": "integer", "const": 4 },
+        "recovery_drill_interval_days": { "type": "integer", "const": 90 },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/recovery_rule" }
+        }
+      }
+    },
+    "recovery_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SLO-REC-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "release_gate_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SLO-RG-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "revision_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "allowed_reasons", "forbidden_reasons"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "allowed_reasons": { "$ref": "#/$defs/string_array" },
+        "forbidden_reasons": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "source_alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authoritative_project_documents", "external_references", "owner_decision"],
+      "properties": {
+        "authoritative_project_documents": { "$ref": "#/$defs/string_array" },
+        "external_references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/external_reference" }
+        },
+        "owner_decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decided_by", "decision"],
+          "properties": {
+            "decided_by": { "type": "string", "const": "project_owner" },
+            "decision": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "external_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "url", "usage"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^EXT-SLO-[0-9]{3}$" },
+        "source": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "pattern": "^https://.+" },
+        "usage": { "type": "string", "minLength": 1 }
+      }
+    },
+    "open_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question", "owner"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SLO-Q-[0-9]{3}$" },
+        "question": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

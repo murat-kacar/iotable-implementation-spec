@@ -58,7 +58,7 @@
         "depends_on": { "$ref": "#/$defs/string_array" },
         "source_documents": { "$ref": "#/$defs/string_array" },
         "explicit_non_goals": { "$ref": "#/$defs/string_array" },
-        "status": { "type": "string", "enum": ["draft", "accepted", "requires_decision"] },
+        "status": { "type": "string", "enum": ["draft", "accepted", "defined", "requires_decision"] },
         "open_decision_refs": { "$ref": "#/$defs/string_array" },
         "done_when": { "$ref": "#/$defs/string_array" }
       }

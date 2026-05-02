@@ -457,13 +457,7 @@ validation_rules:
   - id: "TCV-011"
     rule: "Default locale, currency, timezone, and initial plan MUST have explicit values at creation time."
 
-open_decisions:
-  - id: "PCP-OD-001"
-    topic: "Tenant provisioning retry UI behavior."
-    status: "open"
-  - id: "PCP-OD-002"
-    topic: "Platform settings catalog."
-    status: "open"
+open_decisions: []
 
 done_when:
   - "platform_scope_boundary_is_defined"

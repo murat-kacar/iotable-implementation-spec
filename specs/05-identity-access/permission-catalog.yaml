@@ -28,7 +28,7 @@ permission_model:
   rules:
     - "Users MUST be assigned roles for operational manageability."
     - "Backend authorization MUST enforce permissions, not role names."
-    - "Role permission bundles MUST be fixed in the first product version."
+    - "Role permission bundles MUST be fixed in the current product version."
     - "Tenant users MUST NOT create custom roles."
     - "Tenant users MUST NOT edit permission bundles."
     - "Platform permissions and tenant permissions MUST use separate namespaces."

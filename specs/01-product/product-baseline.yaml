@@ -210,7 +210,7 @@ authentication_authorization:
     - "Roles MUST be assigned to users for operational manageability."
     - "Permissions MUST be used as the backend enforcement unit."
     - "Owner roles MUST receive all permissions inside their scope."
-    - "Tenant role permission bundles MUST be fixed in the first product version."
+    - "Tenant role permission bundles MUST be fixed in the current product version."
     - "Tenant users MUST NOT create custom roles."
     - "Tenant users MUST NOT edit permission bundles."
     - "The platform_owner role MUST NOT grant tenant database operational permissions unless explicitly mapped through tenant-scoped permissions."
@@ -297,7 +297,7 @@ device_baseline:
   device_represents: "one_physical_table_qr_display"
   qr_generation: "server_only"
   device_authentication: "device_secret"
-  device_pairing: "one_time_pairing_code"
+  device_configuration: "table_specific_generated_firmware"
   rules:
     - "ESP32 devices MUST NOT generate QR tokens."
     - "ESP32 devices MUST display only server-generated QR payloads."

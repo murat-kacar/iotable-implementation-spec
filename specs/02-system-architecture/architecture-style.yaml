@@ -29,18 +29,18 @@ selected_architecture:
   database_model:
     platform_database: "single_platform_database"
     tenant_database: "database_per_tenant"
-  frontend_deployment_split: "open_decision"
+  frontend_deployment_split: "two_separate_nextjs_apps"
 
 rationale:
   selected_because:
-    - "IoTable requires strong module boundaries but does not require independent service deployment at initial implementation."
+    - "IoTable requires strong module boundaries and does not require independent service deployment."
     - "Database-per-tenant already creates operational complexity; microservices would add unnecessary deployment, observability, and data consistency overhead."
-    - "Ubuntu VPS deployment favors a simpler runtime topology."
+    - "Ubuntu VPS deployment requires a low-complexity runtime topology."
     - "A modular monolith is easier for LLM coding agents to implement consistently when module ownership, contracts, and tests are explicit."
-    - "Business capability modules can be extracted later only if a real operational need appears."
+    - "Business capability modules remain inside the modular monolith unless an owner-approved architecture decision changes the service boundary."
   rejected_alternatives:
     - id: "microservices"
-      reason: "Rejected for initial implementation because it increases distributed system complexity without a validated need for independent deployment."
+      reason: "Rejected because it increases distributed system complexity without a validated need for independent deployment."
     - id: "layered_monolith_without_module_boundaries"
       reason: "Rejected because it does not protect business capability ownership strongly enough."
     - id: "frontend_backend_split_as_primary_architecture"
@@ -94,13 +94,13 @@ runtime_topology:
     tenant_database_pattern: "iotable_tenant_{tenantSlug}"
   frontend:
     stack:
-      - "Next.js 16.2.4 LTS"
-      - "React 19.2.5 LTS"
-      - "TypeScript 6.0.3 LTS"
-      - "Tailwind CSS v4.0 LTS"
+      - "Next.js 16.2.4"
+      - "React 19.2.5"
+      - "TypeScript 6.0.3"
+      - "Tailwind CSS v4.0"
       - "Node.js 24 LTS"
-      - "pnpm 11.0.3 LTS"
-    deployment_split: "open_decision"
+      - "pnpm 11.0.3"
+    deployment_split: "two_separate_nextjs_apps"
   hosting:
     target: "ubuntu_vps"
 
@@ -122,7 +122,7 @@ background_processing:
     - "tenant_provisioning_jobs"
     - "tenant_schema_change_jobs"
     - "maintenance_jobs"
-  rule: "Background jobs remain inside the modular monolith unless a future architecture decision explicitly separates them."
+  rule: "Background jobs remain inside the modular monolith unless an owner-approved architecture decision explicitly separates them."
 
 migration_policy:
   platform_database_migrations: "executed_for_platform_database"
@@ -137,21 +137,9 @@ service_extraction_policy:
     - "data_ownership_is_clear"
     - "deployment_and_observability_cost_is_accepted"
     - "project_owner_approves_new_architecture_decision"
-  rule: "No module may be extracted into a separate service during initial implementation."
+  rule: "No module may be extracted into a separate service without an owner-approved architecture decision."
 
-open_decisions:
-  - id: "AS-001"
-    topic: "Admin panel application and deployment split."
-    status: "open"
-  - id: "AS-002"
-    topic: "Concrete backend solution and project folder structure."
-    status: "open"
-  - id: "AS-003"
-    topic: "Background job library selection."
-    status: "open"
-  - id: "AS-004"
-    topic: "Cache and distributed lock technology selection."
-    status: "open"
+open_decisions: []
 
 done_when:
   - "primary_architecture_style_is_selected"

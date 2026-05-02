@@ -8,6 +8,7 @@
     "document",
     "purpose",
     "selected_technologies",
+    "research_record",
     "background_job_decision",
     "cache_decision",
     "locking_decision",
@@ -20,6 +21,7 @@
     "document": { "$ref": "#/$defs/document" },
     "purpose": { "$ref": "#/$defs/object_record" },
     "selected_technologies": { "$ref": "#/$defs/object_record" },
+    "research_record": { "$ref": "#/$defs/research_record" },
     "background_job_decision": { "$ref": "#/$defs/object_record" },
     "cache_decision": { "$ref": "#/$defs/object_record" },
     "locking_decision": { "$ref": "#/$defs/object_record" },
@@ -31,6 +33,61 @@
   "$defs": {
     "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "research_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "topic", "status", "problem", "selected_option", "options", "source_records", "fit_assessment", "risks"],
+      "properties": {
+        "decision_id": { "type": "string", "minLength": 1 },
+        "topic": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["accepted", "rejected", "needs_owner_decision", "research_only"] },
+        "problem": { "type": "string", "minLength": 1 },
+        "selected_option": { "type": "string", "minLength": 1 },
+        "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/research_option" } },
+        "source_records": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/source_record" } },
+        "fit_assessment": { "$ref": "#/$defs/object_record" },
+        "risks": { "type": "array", "items": { "$ref": "#/$defs/risk_record" } }
+      }
+    },
+    "research_option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "advantages", "disadvantages", "fit_score", "source_support"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "advantages": { "$ref": "#/$defs/string_array" },
+        "disadvantages": { "$ref": "#/$defs/string_array" },
+        "fit_score": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "source_support": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "source_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_type", "authority_level", "locator", "retrieved_at", "used_for", "extracted_facts", "limitations", "spec_impact"],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "source_type": { "type": "string", "minLength": 1 },
+        "authority_level": { "type": "string", "minLength": 1 },
+        "locator": { "type": "string", "minLength": 1 },
+        "retrieved_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "used_for": { "$ref": "#/$defs/string_array" },
+        "extracted_facts": { "$ref": "#/$defs/string_array" },
+        "limitations": { "$ref": "#/$defs/string_array" },
+        "spec_impact": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "risk_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "risk", "mitigation"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "risk": { "type": "string", "minLength": 1 },
+        "mitigation": { "type": "string", "minLength": 1 }
+      }
+    },
     "document": {
       "type": "object",
       "additionalProperties": false,

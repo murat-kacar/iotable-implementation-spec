@@ -22,7 +22,7 @@
     "purpose": { "$ref": "#/$defs/object_record" },
     "api_policy": { "$ref": "#/$defs/object_record" },
     "common_headers": { "$ref": "#/$defs/object_record" },
-    "common_error_contract": { "$ref": "#/$defs/object_record" },
+    "common_error_contract": { "$ref": "#/$defs/common_error_contract" },
     "pagination_contract": { "$ref": "#/$defs/object_record" },
     "endpoint_groups": { "$ref": "#/$defs/object_record" },
     "request_response_contracts": { "$ref": "#/$defs/object_record" },
@@ -33,6 +33,17 @@
   "$defs": {
     "string_array": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "object_record": { "type": "object", "additionalProperties": true, "minProperties": 1 },
+    "common_error_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "content_type", "fields", "rules"],
+      "properties": {
+        "format": { "type": "string", "const": "problem_details" },
+        "content_type": { "type": "string", "const": "application/problem+json" },
+        "fields": { "$ref": "#/$defs/string_array" },
+        "rules": { "$ref": "#/$defs/string_array" }
+      }
+    },
     "document": {
       "type": "object",
       "additionalProperties": false,

@@ -77,14 +77,19 @@ station_workflow:
   preparing_required: true
   ready_required: true
   served_required: true
+  partial_station_ticket_acceptance_allowed: false
+  floor_staff_bulk_mark_ready_items_served_allowed: true
   served_marking_actor: "floor_staff"
   rules:
     - "Station operators MUST acknowledge accepted station work."
+    - "A station ticket MUST be accepted as a whole ticket."
+    - "Station tickets MUST NOT support partial acceptance per item."
     - "Accepted and preparing are separate statuses."
     - "Accepted means the station has seen and accepted the work."
     - "Preparing means the station is actively working on the item."
     - "Ready means the station has completed preparation."
     - "Served MUST be marked by floor staff after the item is delivered to the table."
+    - "Floor staff MAY mark all ready items on a table as served in one bulk action."
     - "Station operators MUST NOT mark an item as served."
 
 customer_visibility:
@@ -131,7 +136,7 @@ cancellation_policy:
   rules:
     - "Staff MAY cancel an order item before the item reaches accepted status."
     - "Staff MUST NOT cancel an order item after accepted status."
-    - "Tenant manager or tenant admin MAY cancel an accepted or later order item only with a required reason."
+    - "Tenant manager or tenant admin MAY cancel an accepted, preparing, ready, or served order item only with a required reason."
     - "Privileged cancellation after acceptance MUST be audited."
     - "Privileged cancellation after acceptance MUST update the table bill total."
     - "Cancellation does not trigger refund behavior because IoTable does not collect payments."
@@ -156,13 +161,20 @@ failure_handling:
     - "The system MUST expose configuration errors to tenant manager or tenant admin."
     - "The system MUST NOT silently route an item to a fallback station."
 
-open_decisions:
-  - id: "SOR-001"
-    topic: "Whether station tickets can be partially accepted per item."
-    status: "open"
-  - id: "SOR-002"
-    topic: "Whether floor staff can mark all ready items on a table as served in bulk."
-    status: "open"
+forbidden_behavior:
+  - "station_ticket_partial_acceptance_per_item"
+  - "station_operator_marking_item_served"
+  - "fallback_station_silent_routing"
+
+owner_decisions:
+  - id: "SOR-OD-001"
+    topic: "Station tickets are accepted as whole tickets and partial per-item station ticket acceptance is not supported."
+    decision: "accepted"
+  - id: "SOR-OD-002"
+    topic: "Floor staff can mark all ready items on a table as served in one bulk action."
+    decision: "accepted"
+
+open_decisions: []
 
 done_when:
   - "routing_unit_is_defined"
@@ -175,3 +187,6 @@ done_when:
   - "cancellation_policy_is_defined"
   - "configuration_requirements_are_defined"
   - "failure_handling_is_defined"
+  - "station_partial_acceptance_policy_is_defined"
+  - "bulk_served_marking_policy_is_defined"
+  - "forbidden_station_routing_behavior_is_defined"

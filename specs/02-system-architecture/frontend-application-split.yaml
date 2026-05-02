@@ -20,11 +20,11 @@ purpose:
 
 frontend_stack:
   runtime: "Node.js 24 LTS"
-  package_manager: "pnpm 11.0.3 LTS"
-  framework: "Next.js 16.2.4 LTS"
-  ui_runtime: "React 19.2.5 LTS"
-  language: "TypeScript 6.0.3 LTS"
-  styling: "Tailwind CSS v4.0 LTS"
+  package_manager: "pnpm 11.0.3"
+  framework: "Next.js 16.2.4"
+  ui_runtime: "React 19.2.5"
+  language: "TypeScript 6.0.3"
+  styling: "Tailwind CSS v4.0"
 
 selected_split:
   backend: "single_modular_monolith_backend"
@@ -160,10 +160,7 @@ build_and_deployment:
     - "A tenant_web deployment MUST NOT require rebuilding platform_web."
     - "Both frontend deployables MAY consume shared frontend packages."
 
-open_decisions:
-  - id: "FAS-OD-001"
-    topic: "Whether customer ordering should later become a third separate frontend deployable."
-    status: "open"
+open_decisions: []
 
 forbidden_behavior:
   - "single_nextjs_app_for_all_surfaces"

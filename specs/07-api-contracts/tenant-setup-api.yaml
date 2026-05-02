@@ -50,6 +50,26 @@ common_contract_rules:
     - "Secret fields MUST NOT be returned except inside explicit firmware artifact download responses."
     - "Firmware artifact responses MUST be non-cacheable."
 
+common_error_contract:
+  format: "problem_details"
+  content_type: "application/problem+json"
+  fields:
+    - "type"
+    - "title"
+    - "status"
+    - "detail"
+    - "instance"
+    - "correlationId"
+    - "errors"
+  rules:
+    - "Every tenant setup API error response with a JSON body MUST use application/problem+json."
+    - "Validation failures MUST return 400 with field-level errors."
+    - "Authentication failures MUST return 401."
+    - "Authorization failures MUST return 403."
+    - "Missing resources MUST return 404."
+    - "State conflicts and idempotency conflicts MUST return 409."
+    - "Unexpected failures MUST return 500 with correlationId."
+
 endpoints:
   setup_status:
     - id: "TSA-001"

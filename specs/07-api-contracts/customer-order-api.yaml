@@ -87,6 +87,27 @@ common_contract_rules:
     - "Cart mutations MUST be idempotent to avoid duplicate items from network retries."
     - "Customer session cookies MUST use HttpOnly, Secure, and SameSite=Lax or stricter."
 
+common_error_contract:
+  format: "problem_details"
+  content_type: "application/problem+json"
+  fields:
+    - "type"
+    - "title"
+    - "status"
+    - "detail"
+    - "instance"
+    - "correlationId"
+    - "errors"
+  rules:
+    - "Every customer order API error response with a JSON body MUST use application/problem+json."
+    - "Validation failures MUST return 400 with field-level errors."
+    - "Missing or expired customer session failures MUST return 401."
+    - "Forbidden customer access failures MUST return 403."
+    - "Missing resources MUST return 404."
+    - "Stale or consumed QR token failures MUST return 409."
+    - "State conflicts and idempotency conflicts MUST return 409."
+    - "Unexpected failures MUST return 500 with correlationId."
+
 endpoints:
   public_menu:
     - id: "COA-001"

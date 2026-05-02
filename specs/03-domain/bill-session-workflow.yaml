@@ -28,9 +28,9 @@ bill_session_model:
   rules:
     - "A table MUST NOT have more than one active bill session."
     - "A bill session belongs to exactly one table."
-    - "Initial product version MUST NOT integrate online payment providers."
-    - "Initial product version MUST record manual payment status only."
-    - "Customer-facing payment collection MUST NOT be supported in the initial product version."
+    - "IoTable MUST NOT integrate online payment providers."
+    - "IoTable MUST record manual payment status only."
+    - "Customer-facing payment collection MUST NOT be supported."
 
 bill_lifecycle_states:
   allowed_states:
@@ -204,8 +204,8 @@ workflows:
 manual_payment_policy:
   provider_payment_supported: false
   manual_payment_required_to_close: true
-  partial_payment_supported_initial_version: false
-  overpayment_allowed_initial_version: false
+  partial_payment_supported: false
+  overpayment_allowed: false
   payment_methods:
     - "cash"
     - "card_external_pos"
@@ -214,9 +214,9 @@ manual_payment_policy:
   rules:
     - "Manual payment record MUST represent an external/offline payment event."
     - "Manual payment record MUST NOT claim that IoTable processed the payment."
-    - "Initial product version MUST require one manual payment record matching bill total to close."
-    - "Partial payments MUST NOT be supported in the initial product version."
-    - "Overpayments MUST NOT be supported in the initial product version."
+    - "IoTable MUST require one manual payment record matching bill total to close."
+    - "Partial payments MUST NOT be supported."
+    - "Overpayments MUST NOT be supported."
 
 authorization_policy:
   view_bill:
@@ -272,13 +272,13 @@ forbidden_behavior:
   - "customer_stale_qr_bill_view"
   - "bill_close_without_manual_payment_record"
   - "bill_close_by_unauthorized_staff"
-  - "bill_reopen_by_cashier_or_floor_staff_initial_version"
+  - "bill_reopen_by_cashier_or_floor_staff"
   - "bill_reopen_without_reason"
   - "closed_bill_accepting_new_orders_without_reopen"
   - "client_provided_bill_total_as_source_of_truth"
-  - "payment_provider_charge_initial_version"
-  - "partial_payments_initial_version"
-  - "overpayments_initial_version"
+  - "payment_provider_charge"
+  - "partial_payments"
+  - "overpayments"
 
 open_decisions: []
 

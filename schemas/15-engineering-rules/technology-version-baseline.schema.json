@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iotables.net/schemas/15-engineering-rules/technology-version-baseline.schema.json",
+  "title": "IoTable Technology Version Baseline Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "purpose",
+    "baseline",
+    "binding_rules",
+    "forbidden_technology_substitutions",
+    "source_alignment",
+    "done_when"
+  ],
+  "properties": {
+    "document": { "$ref": "#/$defs/document" },
+    "purpose": { "$ref": "#/$defs/purpose" },
+    "baseline": { "$ref": "#/$defs/baseline" },
+    "binding_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule_record" }
+    },
+    "forbidden_technology_substitutions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/forbidden_substitution" }
+    },
+    "source_alignment": { "$ref": "#/$defs/source_alignment" },
+    "done_when": { "$ref": "#/$defs/string_array" }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "project", "version", "language", "format", "schema_required", "schema_file", "status"],
+      "properties": {
+        "id": { "type": "string", "const": "15-engineering-rules.technology-version-baseline" },
+        "title": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "const": "IoTable" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "language": { "type": "string", "const": "en" },
+        "format": { "type": "string", "const": "yaml" },
+        "schema_required": { "type": "boolean", "const": true },
+        "schema_file": { "type": "string", "const": "schemas/15-engineering-rules/technology-version-baseline.schema.json" },
+        "status": { "type": "string", "enum": ["draft", "accepted", "superseded"] }
+      }
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "applies_to"],
+      "properties": {
+        "rule": { "type": "string", "minLength": 1 },
+        "applies_to": { "$ref": "#/$defs/string_array" }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "frontend", "node_tooling", "data", "deployment"],
+      "properties": {
+        "backend": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runtime", "web_framework", "architecture_role"],
+          "properties": {
+            "runtime": { "type": "string", "const": ".NET 10" },
+            "web_framework": { "type": "string", "const": "ASP.NET Core" },
+            "architecture_role": { "type": "string", "const": "single_modular_monolith_backend" }
+          }
+        },
+        "frontend": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["application_framework", "ui_runtime", "language", "styling", "application_split"],
+          "properties": {
+            "application_framework": { "type": "string", "const": "Next.js 16.2.4" },
+            "ui_runtime": { "type": "string", "const": "React 19.2.5" },
+            "language": { "type": "string", "const": "TypeScript 6.0.3" },
+            "styling": { "type": "string", "const": "Tailwind CSS v4.0" },
+            "application_split": {
+              "type": "array",
+              "prefixItems": [
+                { "type": "string", "const": "platform_web" },
+                { "type": "string", "const": "tenant_web" }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "node_tooling": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runtime", "package_manager"],
+          "properties": {
+            "runtime": { "type": "string", "const": "Node.js 24 LTS" },
+            "package_manager": { "type": "string", "const": "pnpm 11.0.3" }
+          }
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relational_database"],
+          "properties": {
+            "relational_database": { "type": "string", "const": "PostgreSQL 17" }
+          }
+        },
+        "deployment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operating_system"],
+          "properties": {
+            "operating_system": { "type": "string", "const": "Ubuntu VPS" }
+          }
+        }
+      }
+    },
+    "rule_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^TVB-[0-9]{3}$" },
+        "rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "forbidden_substitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "substitution", "reason"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^TVB-FORBID-[0-9]{3}$" },
+        "substitution": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source_alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authoritative_project_documents", "reference_documents_used_as_inspiration", "reference_fit_rule"],
+      "properties": {
+        "authoritative_project_documents": { "$ref": "#/$defs/string_array" },
+        "reference_documents_used_as_inspiration": { "$ref": "#/$defs/string_array" },
+        "reference_fit_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

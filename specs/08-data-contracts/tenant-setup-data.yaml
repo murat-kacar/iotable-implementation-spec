@@ -93,7 +93,7 @@ tenant_database_boundary:
     - "tenant_assets"
     - "table_devices"
     - "staff_invites"
-  future_operational_owners:
+  operational_data_owners:
     - "customer_sessions"
     - "carts"
     - "orders"
@@ -469,7 +469,7 @@ tables:
 
   staff_invites:
     ownership: "tenant_database"
-    purpose: "Stores optional tenant staff invitations created during setup or later tenant administration."
+    purpose: "Stores optional tenant staff invitations created during setup or tenant administration."
     primary_key: "id"
     columns:
       id: "uuid"
