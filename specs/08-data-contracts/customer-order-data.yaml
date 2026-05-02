@@ -1,0 +1,378 @@
+document:
+  id: "08-data-contracts.customer-order-data"
+  title: "IoTable Customer Order Data Contracts"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/08-data-contracts/customer-order-data.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define tenant-owned customer QR token, customer session, cart, order, order item, and station ticket data contracts for customer ordering flows."
+  applies_to:
+    - "tenant_database"
+    - "customer_qr_access"
+    - "customer_sessions"
+    - "customer_carts"
+    - "customer_orders"
+    - "station_tickets"
+    - "table_qr_security"
+
+isolation_principle:
+  model: "database_per_tenant"
+  ownership: "tenant_database"
+  rules:
+    - "Customer ordering data MUST be stored only in the resolved tenant database."
+    - "Customer ordering data MUST NOT be stored in the platform database."
+    - "Customer ordering tables SHOULD NOT include tenant_id for isolation."
+    - "Customer ordering isolation MUST be enforced by tenant database boundary."
+    - "Customer ordering queries MUST NOT cross tenant database boundaries."
+
+common_columns:
+  required_for_mutable_tables:
+    - "id"
+    - "created_at_utc"
+    - "updated_at_utc"
+  id_policy:
+    type: "uuid"
+    generated_by: "application_or_database"
+  time_policy:
+    timezone: "utc"
+    rules:
+      - "Mutable customer ordering tables MUST include created_at_utc and updated_at_utc."
+      - "Timestamp fields MUST be stored in UTC."
+
+qr_token_policy:
+  token_storage: "hash_only"
+  fresh_token_ttl_seconds: 60
+  stale_menu_access_allowed: true
+  fresh_token_single_use: true
+  consume_rotates_qr: true
+  rules:
+    - "Fresh QR token plaintext MUST NOT be persisted."
+    - "Fresh QR token hash MUST be stored in qr_tokens."
+    - "Fresh QR tokens MUST be single-use for session join."
+    - "Fresh QR tokens MUST expire after 60 seconds."
+    - "Consuming a fresh QR token MUST rotate the table QR token."
+    - "Stale QR MUST allow menu viewing only."
+
+customer_session_policy:
+  initial_ttl_minutes: 10
+  extension_duration_minutes: 10
+  max_extensions: 3
+  max_total_lifetime_minutes: 40
+  expires_on_order_submit: true
+  customer_identity_required: false
+  phone_required: false
+  rules:
+    - "Customer sessions MUST initially expire 10 minutes after fresh QR join."
+    - "Customer sessions MUST allow at most 3 explicit user-visible extensions."
+    - "Customer sessions MUST NOT exceed 40 minutes total lifetime."
+    - "Customer sessions MUST move offline after successful order submission."
+    - "Customer sessions MUST NOT require customer login or phone number in the initial product version."
+
+order_model:
+  one_customer_submit_creates_one_order: true
+  one_order_has_many_order_items: true
+  station_tickets_created_per_station: true
+  station_tickets_grouped_by_station: true
+  rules:
+    - "One customer order submit MUST create exactly one order."
+    - "One order MAY contain items routed to multiple stations."
+    - "Station tickets MUST be created per station from order items."
+    - "Station tickets MUST reference the parent order."
+
+price_snapshot_policy:
+  cart_item_price_snapshot_on_add: true
+  order_item_price_snapshot_on_submit: true
+  submit_revalidates_current_price: true
+  rules:
+    - "Cart items MUST store the displayed price snapshot captured when the item is added to cart."
+    - "Order items MUST store final submitted price snapshot."
+    - "Order submit MUST revalidate current menu item price before order creation."
+    - "If price changed before submit, order submit MUST fail with a cart refresh required error."
+
+tables:
+  qr_tokens:
+    ownership: "tenant_database"
+    purpose: "Stores hashed QR token state for table menu access and fresh customer session joins."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      table_id: "uuid_required_fk_tables"
+      token_hash: "text_required_unique"
+      token_kind: "enum_required"
+      status: "enum_required"
+      issued_at_utc: "timestamptz_required"
+      expires_at_utc: "timestamptz_nullable"
+      consumed_at_utc: "timestamptz_nullable"
+      replaced_by_token_id: "uuid_nullable_fk_qr_tokens"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_token_kinds:
+      - "stale_menu"
+      - "fresh_session_join"
+    allowed_statuses:
+      - "active"
+      - "consumed"
+      - "expired"
+      - "replaced"
+      - "revoked"
+    unique_constraints:
+      - "ux_qr_tokens_token_hash"
+    constraints:
+      - "fresh_tokens_require_expires_at"
+      - "fresh_tokens_single_use"
+      - "plaintext_token_forbidden"
+      - "token_table_must_be_active_for_session_join"
+
+  customer_sessions:
+    ownership: "tenant_database"
+    purpose: "Stores short-lived customer sessions created by fresh QR join."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      table_id: "uuid_required_fk_tables"
+      qr_token_id: "uuid_required_fk_qr_tokens"
+      status: "enum_required"
+      started_at_utc: "timestamptz_required"
+      expires_at_utc: "timestamptz_required"
+      submitted_at_utc: "timestamptz_nullable"
+      expired_at_utc: "timestamptz_nullable"
+      offline_at_utc: "timestamptz_nullable"
+      extension_count: "integer_required_default_0"
+      max_expires_at_utc: "timestamptz_required"
+      last_activity_at_utc: "timestamptz_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "active"
+      - "submitted"
+      - "expired"
+      - "offline"
+    indexes:
+      - "ix_customer_sessions_table_status"
+      - "ix_customer_sessions_expires_at"
+    constraints:
+      - "extension_count_not_above_3"
+      - "expires_at_not_after_max_expires_at"
+      - "max_lifetime_not_above_40_minutes"
+      - "submitted_session_must_move_offline"
+
+  customer_carts:
+    ownership: "tenant_database"
+    purpose: "Stores one cart per active customer session."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      customer_session_id: "uuid_required_fk_customer_sessions"
+      table_id: "uuid_required_fk_tables"
+      status: "enum_required"
+      locked_at_utc: "timestamptz_nullable"
+      submitted_order_id: "uuid_nullable_fk_orders"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "active"
+      - "locked"
+      - "submitted"
+      - "abandoned"
+    unique_constraints:
+      - "ux_customer_carts_one_active_cart_per_session"
+    constraints:
+      - "one_active_cart_per_active_session"
+      - "cart_locked_on_order_submit"
+
+  customer_cart_items:
+    ownership: "tenant_database"
+    purpose: "Stores customer cart item rows and price snapshots captured when added."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      cart_id: "uuid_required_fk_customer_carts"
+      menu_item_id: "uuid_required_fk_menu_items"
+      quantity: "integer_required"
+      item_name_snapshot: "text_required"
+      unit_price_amount_snapshot: "numeric_required"
+      unit_price_currency_snapshot: "char3_required_default_TRY"
+      station_id_snapshot: "uuid_required_fk_stations"
+      note: "text_nullable"
+      status: "enum_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "active"
+      - "removed"
+      - "submitted"
+    constraints:
+      - "quantity_must_be_positive"
+      - "cart_item_price_snapshot_required"
+      - "cart_item_station_snapshot_required"
+
+  orders:
+    ownership: "tenant_database"
+    purpose: "Stores submitted customer orders created from active customer sessions."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      order_number: "text_required_unique"
+      table_id: "uuid_required_fk_tables"
+      customer_session_id: "uuid_required_fk_customer_sessions"
+      cart_id: "uuid_required_fk_customer_carts"
+      status: "enum_required"
+      source: "enum_required_default_customer_session"
+      submitted_at_utc: "timestamptz_required"
+      total_amount: "numeric_required"
+      currency: "char3_required_default_TRY"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "submitted"
+      - "accepted"
+      - "partially_ready"
+      - "ready"
+      - "served"
+      - "cancelled"
+    allowed_sources:
+      - "customer_session"
+      - "staff_pda"
+    unique_constraints:
+      - "ux_orders_order_number"
+    constraints:
+      - "one_submit_creates_one_order"
+      - "customer_order_requires_customer_session"
+      - "order_total_matches_order_items"
+
+  order_items:
+    ownership: "tenant_database"
+    purpose: "Stores submitted order item rows with final price and routing snapshots."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      order_id: "uuid_required_fk_orders"
+      menu_item_id: "uuid_required_fk_menu_items"
+      quantity: "integer_required"
+      item_name_snapshot: "text_required"
+      unit_price_amount_snapshot: "numeric_required"
+      unit_price_currency_snapshot: "char3_required_default_TRY"
+      station_id_snapshot: "uuid_required_fk_stations"
+      note: "text_nullable"
+      status: "enum_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "submitted"
+      - "accepted"
+      - "preparing"
+      - "ready"
+      - "served"
+      - "cancelled"
+    constraints:
+      - "quantity_must_be_positive"
+      - "order_item_price_snapshot_required"
+      - "order_item_station_snapshot_required"
+
+  station_tickets:
+    ownership: "tenant_database"
+    purpose: "Stores station-specific work tickets created from submitted order items."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      order_id: "uuid_required_fk_orders"
+      station_id: "uuid_required_fk_stations"
+      status: "enum_required"
+      accepted_at_utc: "timestamptz_nullable"
+      preparing_at_utc: "timestamptz_nullable"
+      ready_at_utc: "timestamptz_nullable"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "submitted"
+      - "accepted"
+      - "preparing"
+      - "ready"
+      - "cancelled"
+    unique_constraints:
+      - "ux_station_tickets_order_station"
+    constraints:
+      - "one_station_ticket_per_order_station"
+      - "station_ticket_requires_active_station_at_creation"
+
+  station_ticket_items:
+    ownership: "tenant_database"
+    purpose: "Maps submitted order items to station tickets."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      station_ticket_id: "uuid_required_fk_station_tickets"
+      order_item_id: "uuid_required_fk_order_items"
+      quantity: "integer_required"
+      status: "enum_required"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "submitted"
+      - "accepted"
+      - "preparing"
+      - "ready"
+      - "cancelled"
+    unique_constraints:
+      - "ux_station_ticket_items_ticket_order_item"
+    constraints:
+      - "station_ticket_item_must_match_ticket_station_snapshot"
+
+submit_transaction_rules:
+  atomic_operation: true
+  creates:
+    - "orders"
+    - "order_items"
+    - "station_tickets"
+    - "station_ticket_items"
+  updates:
+    - "customer_sessions"
+    - "customer_carts"
+    - "customer_cart_items"
+  rules:
+    - "Order submit MUST be atomic."
+    - "Order submit MUST revalidate session active status inside the transaction."
+    - "Order submit MUST revalidate current price and station routing inside the transaction."
+    - "Order submit MUST lock or mark submitted cart inside the transaction."
+    - "Order submit MUST move customer session to submitted/offline inside the transaction."
+    - "Order submit MUST create station tickets grouped by station inside the transaction."
+
+forbidden_behavior:
+  - "customer_order_data_in_platform_database"
+  - "qr_token_plaintext_persistence"
+  - "fresh_qr_token_reuse"
+  - "fresh_qr_token_ttl_above_60_seconds_initial_version"
+  - "customer_session_lifetime_above_40_minutes"
+  - "customer_session_extension_count_above_3"
+  - "customer_session_remaining_active_after_order_submit"
+  - "multiple_active_carts_for_one_active_session"
+  - "order_submit_without_price_revalidation"
+  - "order_submit_without_station_routing_revalidation"
+  - "one_submit_creating_multiple_orders_initial_version"
+  - "station_ticket_without_parent_order"
+  - "customer_identity_required_initial_version"
+  - "customer_phone_required_initial_version"
+
+open_decisions: []
+
+done_when:
+  - "customer_order_data_isolation_is_defined"
+  - "qr_token_policy_is_defined"
+  - "customer_session_policy_is_defined"
+  - "order_model_is_defined"
+  - "price_snapshot_policy_is_defined"
+  - "qr_tokens_table_is_defined"
+  - "customer_sessions_table_is_defined"
+  - "customer_carts_table_is_defined"
+  - "customer_cart_items_table_is_defined"
+  - "orders_table_is_defined"
+  - "order_items_table_is_defined"
+  - "station_tickets_table_is_defined"
+  - "station_ticket_items_table_is_defined"
+  - "submit_transaction_rules_are_defined"
+  - "forbidden_customer_order_data_behavior_is_defined"
