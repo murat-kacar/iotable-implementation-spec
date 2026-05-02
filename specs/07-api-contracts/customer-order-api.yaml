@@ -10,7 +10,7 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define customer-facing tenant API contracts for public menu access, fresh QR session join, customer session extension, bill view, cart read/mutation, order submission, and customer order status."
+  rule: "Define customer-facing tenant API contracts for public menu access, fresh QR session join, customer session extension, bill view, cart read/mutation, and order submission."
   applies_to:
     - "customer_menu_routes"
     - "customer_qr_access"
@@ -29,6 +29,7 @@ api_policy:
   customer_login_required: false
   customer_phone_required: false
   session_transport: "http_only_secure_cookie"
+  post_submit_customer_order_status_endpoint: false
   rules:
     - "Customer order API MUST be served only from tenant domains."
     - "Customer order API MUST NOT be served from platform.iotables.net."
@@ -38,6 +39,7 @@ api_policy:
     - "Customer ordering MUST NOT require phone number in the initial product version."
     - "Customer session token MUST be transported using HttpOnly Secure cookie."
     - "Customer session token MUST NOT be stored in localStorage."
+    - "Initial product version MUST NOT expose customer order status lookup after submit, because successful submit moves the customer session offline."
 
 access_policy:
   stale_qr_allowed_for:
@@ -51,13 +53,18 @@ access_policy:
     - "cart_read"
     - "cart_mutation"
     - "order_submit"
-    - "order_status"
+  post_submit_access:
+    session_status: "offline"
+    customer_order_status_lookup_allowed: false
+    bill_or_adisyon_reaccess_requires_new_fresh_qr: true
   rules:
     - "Public menu endpoint MUST allow stale QR access."
     - "Public menu endpoint MUST NOT reveal active bill/adisyon state."
     - "Public menu endpoint MUST NOT reveal cart or session state."
     - "Session join endpoint MUST require fresh QR token."
-    - "Bill view, cart read, cart mutation, order submit, and order status MUST require active customer session."
+    - "Bill view, cart read, cart mutation, and order submit MUST require active customer session."
+    - "After successful order submit, the customer session MUST be offline and customer API order status lookup MUST NOT be available."
+    - "Viewing bill/adisyon after submit MUST require joining again with a fresh QR."
 
 common_contract_rules:
   id_format: "uuid"
@@ -226,16 +233,7 @@ endpoints:
         - "Order submit MUST lock or submit the cart."
         - "Order submit MUST move the customer session offline immediately after success."
         - "Order submit MUST be atomic."
-    - id: "COA-401"
-      method: "GET"
-      path: "/orders/{orderId}"
-      authentication_required: true
-      active_customer_session_required: true
-      purpose: "Return status of an order belonging to the active customer session."
-      response: "CustomerOrderResponse"
-      rules:
-        - "Order status MUST require active customer session."
-        - "Order status MUST only return orders belonging to the current customer session."
+        - "Submit response MUST be the only customer-visible order confirmation in the initial product version."
 
 request_response_contracts:
   JoinCustomerSessionRequest:
@@ -340,6 +338,7 @@ forbidden_behavior:
   - "public_menu_revealing_bill_state"
   - "cart_mutation_without_active_customer_session"
   - "order_submit_without_active_customer_session"
+  - "post_submit_customer_order_status_lookup_initial_version"
   - "order_submit_without_idempotency"
   - "cart_mutation_without_idempotency"
   - "order_submit_trusting_client_price_or_total"
@@ -362,7 +361,6 @@ done_when:
   - "cart_read_endpoint_is_defined"
   - "cart_mutation_endpoints_are_defined"
   - "order_submit_endpoint_is_defined"
-  - "order_status_endpoint_is_defined"
   - "request_response_contracts_are_defined"
   - "security_and_audit_rules_are_defined"
   - "forbidden_customer_order_api_behavior_is_defined"
