@@ -1,0 +1,273 @@
+document:
+  id: "03-domain.customer-order-session-workflow"
+  title: "IoTable Customer Order Session Workflow"
+  project: "IoTable"
+  version: "1.0.0"
+  language: "en"
+  format: "yaml"
+  schema_required: true
+  schema_file: "schemas/03-domain/customer-order-session-workflow.schema.json"
+  status: "draft"
+
+purpose:
+  rule: "Define customer QR access, fresh QR session join, customer session lifetime, cart mutation, bill view, order submission, session expiration, and anti-manipulation rules."
+  applies_to:
+    - "customer_menu_routes"
+    - "customer_qr_access"
+    - "customer_sessions"
+    - "customer_cart"
+    - "order_submission"
+    - "bill_view"
+    - "table_qr_security"
+
+access_model:
+  stale_qr:
+    menu_access: true
+    bill_access: false
+    cart_mutation: false
+    order_submit: false
+    session_join: false
+  fresh_qr:
+    menu_access: true
+    bill_access: true
+    cart_mutation: true
+    order_submit: true
+    session_join: true
+  rules:
+    - "Stale QR MUST allow menu viewing only."
+    - "Stale QR MUST NOT reveal active bill/adisyon state."
+    - "Stale QR MUST NOT allow customer session join."
+    - "Stale QR MUST NOT allow cart mutation."
+    - "Stale QR MUST NOT allow order submission."
+    - "Fresh QR MUST be required to join or create a customer session."
+    - "Fresh QR MUST be required before bill view, cart mutation, and order submit become available."
+
+session_lifetime:
+  initial_ttl_minutes: 10
+  extension_allowed: true
+  extension_duration_minutes: 10
+  max_extensions: 3
+  max_total_lifetime_minutes: 40
+  extension_requires_active_session: true
+  extension_requires_recent_activity: true
+  extension_requires_fresh_qr: false
+  passive_auto_extend_allowed: false
+  background_extend_allowed: false
+  user_visible_extend_action_required: true
+  expires_on_order_submit: true
+  rules:
+    - "A fresh QR joined customer session MUST initially be active for 10 minutes."
+    - "An active customer session MAY be extended by explicit user-visible action."
+    - "Each extension MUST add at most 10 minutes."
+    - "A customer session MUST NOT be extended more than 3 times."
+    - "A customer session MUST NOT exceed 40 minutes total lifetime."
+    - "A session extension MUST require an active session."
+    - "A session extension MUST require recent user activity."
+    - "A session extension MUST NOT require scanning a new fresh QR."
+    - "A session MUST NOT be passively auto-extended in the background."
+    - "A session MUST move offline immediately after successful order submission."
+
+session_states:
+  allowed_states:
+    - "active"
+    - "offline"
+    - "expired"
+    - "submitted"
+  transitions:
+    - from: "none"
+      to: "active"
+      trigger: "fresh_qr_session_joined"
+    - from: "active"
+      to: "active"
+      trigger: "explicit_user_extension_within_limits"
+    - from: "active"
+      to: "submitted"
+      trigger: "order_submit_succeeded"
+    - from: "submitted"
+      to: "offline"
+      trigger: "post_submit_session_shutdown"
+    - from: "active"
+      to: "expired"
+      trigger: "ttl_expired"
+    - from: "expired"
+      to: "offline"
+      trigger: "session_cleanup"
+  rules:
+    - "Only active sessions MAY view bill, mutate cart, or submit order."
+    - "Offline, expired, and submitted sessions MUST NOT view bill, mutate cart, or submit order."
+    - "A submitted session MUST be treated as offline for further customer actions."
+
+commands:
+  - id: "OpenPublicMenuFromQr"
+    authentication: "none"
+    fresh_qr_required: false
+    emits:
+      - "PublicMenuViewed"
+  - id: "JoinCustomerSessionWithFreshQr"
+    authentication: "fresh_qr_token"
+    fresh_qr_required: true
+    emits:
+      - "CustomerSessionJoined"
+      - "FreshQrConsumed"
+      - "TableQrRotated"
+  - id: "ExtendCustomerSession"
+    authentication: "active_customer_session"
+    fresh_qr_required: false
+    emits:
+      - "CustomerSessionExtended"
+  - id: "ViewBillFromCustomerSession"
+    authentication: "active_customer_session"
+    fresh_qr_required: "session_must_have_originated_from_fresh_qr"
+    emits:
+      - "CustomerBillViewed"
+  - id: "MutateCustomerCart"
+    authentication: "active_customer_session"
+    fresh_qr_required: "session_must_have_originated_from_fresh_qr"
+    emits:
+      - "CustomerCartMutated"
+  - id: "SubmitCustomerOrder"
+    authentication: "active_customer_session"
+    fresh_qr_required: "session_must_have_originated_from_fresh_qr"
+    emits:
+      - "CustomerOrderSubmitted"
+      - "CustomerSessionSubmitted"
+      - "CustomerSessionMovedOffline"
+
+workflows:
+  public_menu_access:
+    input: "any_valid_table_qr_or_menu_url"
+    result: "menu_visible_without_bill_or_cart_access"
+    rules:
+      - "Menu viewing MUST be available from stale QR."
+      - "Menu viewing MUST NOT imply session access."
+      - "Menu viewing MUST NOT expose active bill/adisyon contents."
+  fresh_qr_session_join:
+    input: "fresh_qr_token"
+    validation:
+      - "token_exists"
+      - "token_not_expired"
+      - "token_matches_tenant_and_table"
+      - "tenant_lifecycle_active"
+      - "tenant_operations_active"
+      - "table_active"
+    result:
+      - "customer_session_active"
+      - "session_expiry_set_to_now_plus_10_minutes"
+      - "fresh_qr_consumed"
+      - "table_qr_rotated"
+    rules:
+      - "Fresh QR token MUST be single-use for session join."
+      - "After successful consume, server MUST rotate table QR."
+  session_extension:
+    input: "active_customer_session"
+    validation:
+      - "session_active"
+      - "session_not_submitted"
+      - "session_not_expired"
+      - "extension_count_less_than_3"
+      - "total_lifetime_less_than_40_minutes"
+      - "recent_user_activity_present"
+      - "explicit_user_visible_action_present"
+    result:
+      - "session_expiry_extended_by_10_minutes_or_to_max_total_lifetime"
+      - "extension_count_incremented"
+    rules:
+      - "Session extension MUST be explicit and user-visible."
+      - "Session extension MUST NOT happen from passive background timers."
+  cart_mutation:
+    input: "active_customer_session"
+    validation:
+      - "session_active"
+      - "menu_item_exists"
+      - "menu_item_active"
+      - "menu_item_orderable"
+      - "menu_item_has_price"
+      - "menu_item_has_station_routing"
+    result:
+      - "cart_updated"
+    rules:
+      - "Cart mutation MUST require active customer session."
+      - "Cart mutation MUST NOT be allowed from stale QR menu access."
+  order_submit:
+    input: "active_customer_session_with_cart"
+    validation:
+      - "session_active"
+      - "cart_not_empty"
+      - "all_items_orderable"
+      - "all_items_have_current_price"
+      - "all_items_have_active_station_routing"
+      - "tenant_operations_active"
+      - "table_active"
+    result:
+      - "order_created"
+      - "station_tickets_created_or_queued"
+      - "cart_cleared_or_locked"
+      - "session_moved_offline"
+    rules:
+      - "Successful order submit MUST immediately move the customer session offline."
+      - "After order submit, viewing bill, mutating cart, or submitting another order MUST require joining again with a fresh QR."
+
+anti_manipulation_rules:
+  - "A customer session MUST be short-lived by default."
+  - "A customer session MUST NOT remain active after order submission."
+  - "A customer session MUST NOT be extended silently."
+  - "A customer session MUST NOT exceed 40 minutes total lifetime."
+  - "A stale QR MUST NOT allow a customer to discover whether an active bill exists."
+  - "A stale QR MUST NOT allow joining an existing customer session."
+  - "Fresh QR consume MUST rotate the server-side QR token."
+  - "Order submit MUST revalidate menu item price and station routing at submit time."
+
+customer_identity_policy:
+  login_required: false
+  phone_required: false
+  name_required: false
+  rules:
+    - "Customer ordering MUST NOT require customer login in the initial product version."
+    - "Customer ordering MUST NOT require phone number in the initial product version."
+    - "Customer ordering MUST be protected by fresh QR session access instead of customer identity."
+
+domain_events:
+  - "PublicMenuViewed"
+  - "FreshQrConsumed"
+  - "TableQrRotated"
+  - "CustomerSessionJoined"
+  - "CustomerSessionExtended"
+  - "CustomerSessionExpired"
+  - "CustomerBillViewed"
+  - "CustomerCartMutated"
+  - "CustomerOrderSubmitted"
+  - "CustomerSessionSubmitted"
+  - "CustomerSessionMovedOffline"
+
+forbidden_behavior:
+  - "stale_qr_bill_access"
+  - "stale_qr_session_join"
+  - "stale_qr_cart_mutation"
+  - "stale_qr_order_submit"
+  - "passive_customer_session_auto_extend"
+  - "background_customer_session_extend"
+  - "customer_session_lifetime_above_40_minutes"
+  - "customer_session_extension_count_above_3"
+  - "customer_session_remaining_active_after_order_submit"
+  - "cart_mutation_without_active_customer_session"
+  - "order_submit_without_active_customer_session"
+  - "order_submit_without_revalidating_price_and_station_routing"
+  - "customer_login_required_initial_version"
+  - "customer_phone_required_initial_version"
+
+open_decisions: []
+
+done_when:
+  - "customer_qr_access_model_is_defined"
+  - "customer_session_lifetime_is_defined"
+  - "customer_session_states_are_defined"
+  - "customer_commands_are_defined"
+  - "public_menu_access_workflow_is_defined"
+  - "fresh_qr_session_join_workflow_is_defined"
+  - "session_extension_workflow_is_defined"
+  - "cart_mutation_workflow_is_defined"
+  - "order_submit_workflow_is_defined"
+  - "anti_manipulation_rules_are_defined"
+  - "customer_identity_policy_is_defined"
+  - "domain_events_are_defined"
+  - "forbidden_customer_session_behavior_is_defined"
