@@ -10,10 +10,11 @@ document:
   status: "draft"
 
 purpose:
-  rule: "Define tenant setup database ownership, tenant database isolation, setup entities, tenant staff identity tables, table/station/menu/device/staff invite data contracts, tenant asset records, and forbidden cross-tenant data behavior."
+  rule: "Define tenant setup database ownership, tenant database isolation, setup entities, tenant owner activation invites, tenant staff identity tables, table/station/menu/device/staff invite data contracts, tenant asset records, and forbidden cross-tenant data behavior."
   applies_to:
     - "tenant_database"
     - "tenant_setup_console"
+    - "tenant_owner_activation"
     - "tenant_staff_identity"
     - "tenant_initial_configuration"
     - "tenant_operations_activation"
@@ -22,7 +23,7 @@ purpose:
 
 isolation_principle:
   model: "database_per_tenant"
-  rule: "All tenant operational, setup, and staff identity data MUST be stored only in the assigned tenant database."
+  rule: "All tenant operational, setup, owner activation, and staff identity data MUST be stored only in the assigned tenant database."
   platform_database_name: "iotable_platform"
   tenant_database_pattern: "iotable_tenant_{tenantSlug}"
   tenant_id_filter_based_isolation_allowed: false
@@ -33,6 +34,7 @@ isolation_principle:
     - "Each tenant MUST have a dedicated PostgreSQL database."
     - "Tenant isolation MUST be enforced by database boundary, not by tenant_id filtering inside shared tenant tables."
     - "Tenant operational data MUST NOT be stored in the platform database."
+    - "Tenant owner activation invite records MUST NOT be stored in the platform database."
     - "Tenant staff identity data MUST NOT be stored in the platform database."
     - "A tenant runtime context MUST resolve exactly one tenant database connection."
     - "A request resolved for one tenant MUST NOT query or mutate another tenant database."
@@ -53,6 +55,7 @@ platform_database_boundary:
   does_not_own:
     - "tenant_profile"
     - "tenant_setup_state"
+    - "tenant_owner_activation_invites"
     - "tenant_users"
     - "tenant_user_roles"
     - "tables"
@@ -71,6 +74,7 @@ platform_database_boundary:
   rules:
     - "Platform database MAY store tenant lifecycle metadata and tenant database registry data."
     - "Platform database MUST NOT store tenant setup or tenant operational entities."
+    - "Platform database MUST NOT store tenant owner activation invite records."
     - "Platform database MUST NOT store tenant staff identity records."
     - "Platform database MUST NOT store tenant image asset records."
     - "Platform database MUST NOT store ESP32 device secrets or firmware configuration."
@@ -79,6 +83,7 @@ tenant_database_boundary:
   owns:
     - "tenant_profile"
     - "tenant_setup_state"
+    - "tenant_owner_activation_invites"
     - "tenant_users"
     - "tenant_user_roles"
     - "tables"
@@ -174,6 +179,45 @@ tables:
       - "active"
     constraints:
       - "single_row_guard"
+
+  tenant_owner_activation_invites:
+    ownership: "tenant_database"
+    purpose: "Stores tenant owner activation invite created during platform provisioning."
+    primary_key: "id"
+    columns:
+      id: "uuid"
+      owner_full_name: "text_required"
+      owner_email: "citext_required"
+      normalized_owner_email: "citext_required"
+      owner_phone: "text_nullable"
+      invite_token_hash: "text_required_unique"
+      status: "enum_required"
+      expires_at_utc: "timestamptz_required"
+      accepted_at_utc: "timestamptz_nullable"
+      accepted_user_id: "uuid_nullable_fk_tenant_users"
+      created_at_utc: "timestamptz_required"
+      updated_at_utc: "timestamptz_required"
+    allowed_statuses:
+      - "pending"
+      - "accepted"
+      - "expired"
+      - "revoked"
+    ttl_hours: 168
+    role_assigned_on_acceptance: "tenant_owner"
+    constraints:
+      - "created_only_by_platform_provisioning_flow"
+      - "tenant_owner_activation_token_hash_required"
+      - "tenant_owner_activation_token_plaintext_forbidden"
+      - "tenant_owner_activation_invite_expires_after_168_hours"
+      - "accepted_invite_creates_tenant_owner_user"
+      - "accepted_invite_links_to_tenant_user"
+      - "accepted_invite_not_reusable"
+    rules:
+      - "Tenant owner activation invite MUST be created during tenant provisioning."
+      - "Tenant owner activation invite MUST be stored in the tenant database."
+      - "Tenant owner activation invite MUST NOT be stored in the platform database."
+      - "Tenant owner activation invite MUST assign tenant_owner role on acceptance."
+      - "Tenant owner activation invite MUST NOT be created by tenant staff invite API."
 
   tenant_users:
     ownership: "tenant_database"
@@ -473,6 +517,14 @@ activation_gate_queries:
     - "Activation gate queries MUST verify at least one active orderable menu item."
     - "Activation gate queries MUST verify every active orderable menu item has price, image, and active station routing."
 
+owner_activation_data_security:
+  rules:
+    - "Tenant owner activation invite MUST be stored in the tenant database."
+    - "Tenant owner activation invite token MUST be stored hash-only."
+    - "Tenant owner activation invite token plaintext MUST NOT be persisted or logged."
+    - "Accepted tenant owner activation invite MUST create an active tenant user with tenant_owner role."
+    - "Tenant owner activation invite MUST be distinct from staff_invites."
+
 identity_data_security:
   rules:
     - "Tenant users MUST be stored in the resolved tenant database."
@@ -500,6 +552,7 @@ asset_data_security:
 forbidden_behavior:
   - "shared_tenant_database_with_tenant_id_filter_isolation"
   - "tenant_operational_data_in_platform_database"
+  - "tenant_owner_activation_invite_in_platform_database"
   - "tenant_staff_identity_in_platform_database"
   - "cross_tenant_query"
   - "cross_tenant_transaction"
@@ -507,6 +560,7 @@ forbidden_behavior:
   - "platform_database_storing_orders"
   - "platform_database_storing_table_devices"
   - "platform_database_storing_tenant_assets"
+  - "platform_database_storing_tenant_owner_activation_invites"
   - "platform_database_storing_tenant_users"
   - "platform_database_storing_tenant_user_roles"
   - "platform_database_storing_device_secret_hashes"
@@ -515,6 +569,7 @@ forbidden_behavior:
   - "table_without_qr_device_customer_self_ordering_enabled"
   - "menu_item_image_asset_outside_resolved_tenant_database"
   - "duplicate_active_email_within_same_tenant"
+  - "plaintext_owner_activation_token_persistence"
   - "plaintext_password_persistence"
   - "plaintext_device_secret_persistence"
   - "plaintext_invite_token_persistence"
@@ -528,6 +583,7 @@ done_when:
   - "common_columns_are_defined"
   - "tenant_profile_table_is_defined"
   - "tenant_setup_state_table_is_defined"
+  - "tenant_owner_activation_invites_table_is_defined"
   - "tenant_users_table_is_defined"
   - "tenant_user_roles_table_is_defined"
   - "tenant_assets_table_is_defined"
@@ -538,6 +594,7 @@ done_when:
   - "table_devices_table_is_defined"
   - "staff_invites_table_is_defined"
   - "activation_gate_queries_are_defined"
+  - "owner_activation_data_security_is_defined"
   - "identity_data_security_is_defined"
   - "firmware_data_security_is_defined"
   - "asset_data_security_is_defined"
